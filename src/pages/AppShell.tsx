@@ -5,6 +5,7 @@ import { Logo } from "../components/Logo";
 import { LanguageToggle } from "../components/LanguageToggle";
 import { useLang } from "../i18n/LanguageContext";
 import type { Dict } from "../i18n/translations";
+import { Dashboard } from "./Dashboard";
 
 type NavKey = keyof Dict["app"]["nav"];
 const navIcons: Record<NavKey, LucideIcon> = {
@@ -101,17 +102,7 @@ export default function AppShell() {
           </p>
           <p className="mt-4 max-w-[560px] text-[14px] font-light leading-[1.8] text-muted-foreground">{t.app.ready}</p>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {t.app.cards.map((c) => (
-              <div key={c.label} className="rounded-[14px] border-[1.5px] border-border bg-white p-6">
-                <p className="text-[12px] font-medium text-muted-foreground">{c.label}</p>
-                <p className="mt-3 text-[32px] font-extrabold tracking-[-0.04em] text-foreground" dir="ltr">
-                  {c.value}
-                </p>
-                <p className="mt-1 text-[12px] font-light text-muted-foreground">{c.note}</p>
-              </div>
-            ))}
-          </div>
+          <Dashboard />
 
           <div className="mt-6 rounded-[14px] border-[1.5px] border-dashed border-primary-muted bg-white p-6">
             <h2 className="text-[14px] font-bold">{t.app.nextTitle}</h2>

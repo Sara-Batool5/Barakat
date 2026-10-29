@@ -1,0 +1,8 @@
+{
+  "version": "placeholder-2026.10",
+  "status": "PLACEHOLDER: replace these with documented, cited sources (for example FAO, WRAP or the UAE Ne'ma methodology) before the pitch",
+  "kg_per_meal": 0.5,
+  "co2e_kg_per_kg_food": 2.5,
+  "esg_points_per_meal": 5,
+  "notes": "Meals are counted as rescued portions. CO2e is an estimate of avoided emissions per kilogram of food kept out of waste. Always show the factor version beside any figure."
+}

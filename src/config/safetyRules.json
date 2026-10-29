@@ -1,0 +1,95 @@
+{
+  "version": "2026.10-draft",
+  "status": "PLACEHOLDER VALUES: validate against the official Dubai Municipality food safety requirements before any real-world use",
+  "disclaimer": "BARAKAT screens food; it does not certify it. Thresholds below are illustrative defaults drawn from common food-safety practice, not official Dubai Municipality figures.",
+  "confidence": { "auto_list_min": 0.75, "review_min": 0.5 },
+  "temperature_c": { "chilled_max": 5 },
+  "dispatch": {
+    "min_window_minutes_after_match": 45,
+    "offer_timeout_minutes": 6,
+    "max_offer_attempts": 3,
+    "max_distance_km": 25
+  },
+  "attestation": {
+    "required_for": ["amber"],
+    "fields": ["prepared_at", "stored_temp_c", "allergens"]
+  },
+  "categories": {
+    "packaged_sealed": {
+      "tier": "green",
+      "storage": "ambient",
+      "max_safe_hours": 24,
+      "label": { "en": "Sealed and packaged food", "ar": "أطعمة مغلقة ومعبأة" },
+      "requires": ["sealed_packaging_intact", "expiry_date_visible"]
+    },
+    "beverages_sealed": {
+      "tier": "green",
+      "storage": "ambient",
+      "max_safe_hours": 48,
+      "label": { "en": "Sealed beverages", "ar": "مشروبات مغلقة" },
+      "requires": ["sealed_packaging_intact"]
+    },
+    "produce_whole": {
+      "tier": "green",
+      "storage": "ambient",
+      "max_safe_hours": 36,
+      "label": { "en": "Whole fruit and vegetables", "ar": "فواكه وخضراوات كاملة" },
+      "requires": ["no_visible_damage"]
+    },
+    "bakery_ambient": {
+      "tier": "green",
+      "storage": "ambient",
+      "max_safe_hours": 18,
+      "label": { "en": "Bakery items", "ar": "مخبوزات" },
+      "requires": ["baked_same_day", "no_visible_damage"]
+    },
+    "cooked_chilled": {
+      "tier": "amber",
+      "storage": "chilled",
+      "max_safe_hours": 6,
+      "label": { "en": "Cooked food, chilled", "ar": "طعام مطبوخ ومبرّد" },
+      "requires": ["prepared_at", "stored_temp_c", "allergens"]
+    },
+    "sandwiches_salads": {
+      "tier": "amber",
+      "storage": "chilled",
+      "max_safe_hours": 8,
+      "label": { "en": "Sandwiches, wraps and salads", "ar": "سندويشات ولفائف وسلطات" },
+      "requires": ["prepared_at", "stored_temp_c", "allergens"]
+    },
+    "dairy_desserts": {
+      "tier": "amber",
+      "storage": "chilled",
+      "max_safe_hours": 12,
+      "label": { "en": "Dairy desserts", "ar": "حلويات الألبان" },
+      "requires": ["prepared_at", "stored_temp_c", "allergens"]
+    },
+    "raw_meat_fish": {
+      "tier": "red",
+      "storage": "chilled",
+      "max_safe_hours": 0,
+      "label": { "en": "Raw meat and fish", "ar": "لحوم وأسماك نيئة" },
+      "requires": []
+    },
+    "plate_leftovers": {
+      "tier": "red",
+      "storage": "ambient",
+      "max_safe_hours": 0,
+      "label": { "en": "Plate leftovers", "ar": "بقايا الأطباق" },
+      "requires": []
+    },
+    "unlabelled_unknown": {
+      "tier": "red",
+      "storage": "ambient",
+      "max_safe_hours": 0,
+      "label": { "en": "Unknown or unlabelled food", "ar": "طعام مجهول أو بلا ملصق" },
+      "requires": []
+    }
+  },
+  "hard_stops": [
+    { "code": "raw_meat_fish_hard_stop", "category": "raw_meat_fish", "text": "Raw meat and fish cannot be listed." },
+    { "code": "plate_leftovers_hard_stop", "category": "plate_leftovers", "text": "Food that has been served on a plate cannot be listed." },
+    { "code": "unlabelled_unknown_hard_stop", "category": "unlabelled_unknown", "text": "Unknown or unlabelled food cannot be listed." },
+    { "code": "temp_above_limit", "condition": "chilled item stored above chilled_max", "text": "Stored above the chilled limit, so it cannot be listed." }
+  ]
+}
