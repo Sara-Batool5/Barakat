@@ -21,6 +21,9 @@ For each file: open it (on GitHub, click the file, then the copy button), paste 
 | 7 | `seed_part4of5.sql` | More agent events and fridge stock history |
 | 8 | `seed_part5of5.sql` | Rest of the stock history and impact records |
 | 9 | `90_verify.sql` | Shows row counts so you can confirm everything loaded |
+| 10 | `05_auth_policies.sql` | Step 3: lets new users create their own profile and volunteer record |
+| 11 | `06_demo_accounts_create.sql` | Step 3: creates four one-tap demo accounts |
+| 12 | `07_demo_accounts_link.sql` | Step 3: gives each demo account its role and a sample record (shows 4 rows when done) |
 
 The seed files are large (about 150 KB each). If the editor feels slow, give it a few seconds after pasting.
 If a seed file shows an error, tell me the first line of the message; the files are safe to run again.
@@ -38,3 +41,11 @@ Never put the **service role** key in the website or in GitHub. It is only for t
 ## Other files
 - `04_drop_demo_read_policies.sql`: removes the demo read access before a real launch.
 - `99_reset.sql`: deletes all BARAKAT tables so you can start over. Destructive.
+
+## Step 3: sign-in, roles and demo accounts
+1. In Supabase open **Authentication, then Providers, then Email** and switch **Confirm email** off. This is a prototype, and the demo needs sign-up to work instantly.
+2. Run `05_auth_policies.sql`, `06_demo_accounts_create.sql`, then `07_demo_accounts_link.sql` (steps 10 to 12 above).
+3. If `06` shows an error, create these four users by hand in **Authentication, then Users, then Add user** (tick **Auto Confirm User**, password `BarakatDemo#2026`), then run `07`:
+   `restaurant.demo@barakat.test`, `volunteer.demo@barakat.test`, `host.demo@barakat.test`, `coordinator.demo@barakat.test`
+4. On the website's sign-in page, the four demo buttons now work in one tap.
+5. Before a real launch run `08_remove_demo_accounts.sql` and `04_drop_demo_read_policies.sql`. The demo coordinator can see all data.

@@ -34,3 +34,9 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 
 ## Impact factors (placeholders)
 `src/config/impactFactors.json`: kilograms per meal, CO2e per kilogram and ESG points per meal. Replace with cited sources before the pitch and always show the factor version beside any figure.
+
+## Sign-in and roles (Step 3)
+- `profiles` links a sign-in (`auth.users`) to a `role` and, once onboarding is done, to a `restaurant_id`, `volunteer_id` or `fridge_id`.
+- A trigger creates the profile at sign-up. Only `restaurant`, `volunteer` and `fridge_host` can be chosen by the user; `coordinator` is set by an administrator in SQL.
+- Row-level security (`supabase/02_policies.sql`, `05_auth_policies.sql`): restaurants see their own batches, volunteers see their own jobs, fridge hosts see batches headed to their fridge, coordinators see everything. The agent uses the service key on the server.
+- Demo accounts (`*.demo@barakat.test`) are linked to the most active sample records so every role has something to show.
