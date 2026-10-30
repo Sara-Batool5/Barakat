@@ -1,32 +1,33 @@
-# BARAKAT: Step 3 (sign-in, roles and demo accounts)
+# BARAKAT: Step 4 (restaurant surplus form, photo upload, new logo)
 
 React + Vite + TypeScript + Tailwind CSS + Framer Motion + Supabase. English and Arabic (right-to-left).
 
 ## What is new in this step
-- Real sign-in and sign-up with Supabase (email and password), with a one-tap demo account for each role.
-- Four roles: restaurant, volunteer, fridge host, coordinator. Nobody can sign up as a coordinator.
-- Onboarding after sign-up: a restaurant adds its venue, a volunteer adds area, transport and languages, a fridge host picks a fridge.
-- A role-based app: each role gets its own sidebar and a banner for its linked record. Pages for later steps are guarded by role and show a "coming in step N" card.
-- Without Supabase the site still works: the sign-in page offers the four demo roles locally and says so.
-- `supabase/05` to `08`: security rules for sign-up, demo account creation and linking, and removal.
+- **New logo** (`public/logo.png`, transparent background) in the navbar, footer, sign-in page, app sidebar and as the browser icon. On dark backgrounds it sits on a white disc.
+- **New surplus** (restaurant accounts): photo (shrunk in the browser before upload), items with category, portions and allergens, preparation time, storage temperature, pickup window, notes and a confirmation tick.
+- **Live safety preview** beside the form: tier (green, amber, red), how long the food stays safe, and plain reasons. Red batches (raw meat, plate leftovers, chilled food kept too warm, too little safe time left) cannot be submitted.
+- **My batches**: everything the restaurant submitted, with photo, tier, status and an expandable activity timeline. The demo restaurant already has about 10 past batches.
+- Submissions go through one protected database function (`supabase/09_intake.sql`), which forces status `draft`, checks the items against the safety rules, and saves photos in a private folder per user.
+- Without Supabase the form still works in local demo mode (saved in this browser only).
 
 ## Update the website (no local software)
-1. Upload the contents of this folder to your GitHub repository (**Add file > Upload files**), replacing existing files. Vercel redeploys on its own.
-2. Run the new SQL files in Supabase (see `supabase/README.md`, section "Step 3"):
-   turn **Confirm email** off in Authentication, then run `05_auth_policies.sql`, `06_demo_accounts_create.sql`, `07_demo_accounts_link.sql`.
-3. Make sure Vercel has `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (from Step 2), then redeploy.
+1. Upload the contents of this folder to GitHub (**Add file > Upload files**), replacing existing files. Vercel redeploys on its own.
+   The logo files are in the `public` folder; make sure that folder is uploaded too.
+2. In Supabase SQL Editor, run `supabase/09_intake.sql`.
+3. Open the site, use the **Restaurant** demo button, open **New surplus** and submit a batch.
 
 ## Checklist
-- Sign-in page shows two tabs and four demo buttons. Each demo button signs in and opens the app
-- Restaurant demo: banner shows "Zaytoun Mezze Bar". Volunteer demo: "Bilal Sharma". Fridge host: "FR-014 Downtown Dubai Mall Entrance". Coordinator: "Network coordinator"
-- Each role has a different sidebar; opening another role's page by URL sends you back to the overview
-- Create account: fill the form, choose a role, finish onboarding, land in the app
-- Sign out returns to the landing page; refreshing keeps you signed in
-- Language button flips the whole flow to Arabic right-to-left
+- The new logo shows in the navbar, footer, sign-in page and browser tab, with no white box around it
+- Restaurant demo: sidebar shows Dashboard, New surplus, My batches, Impact
+- Choose a photo, add "Chicken biryani trays" as Cooked food, chilled, 20 portions, prepared 1 hour ago, 3.5 °C: preview shows Amber and about 5h of safe time
+- Raise the temperature to 8: preview turns Red and submit is blocked
+- Submit a valid batch: success screen, then it appears at the top of My batches with your photo and status "Waiting for agent"
+- Open its activity: one entry, "Photo received"
+- Arabic: the form, preview and list switch to Arabic right-to-left
 - If something fails, send me the message on screen, or the red lines from Vercel's build log
 
 ## Notes
-- Demo accounts use a public password and the coordinator can see everything. Before a real launch run `supabase/08_remove_demo_accounts.sql` and `supabase/04_drop_demo_read_policies.sql`.
-- A fridge host picks their own fridge in this prototype. A real launch should have a coordinator approve it.
-- Password reset and email confirmation are left off for the prototype.
+- The agent does not read the photo or screen the batch yet. That is Step 5 (vision) and Step 6 (safety gate and safe-window clock). The preview is a guide only.
+- Photos are private. Only the restaurant that uploaded one (and coordinators) can see it.
+- Activity details are stored in English; in Arabic the titles are translated and details are hidden for now.
 - All records are fictional sample data.

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useLang } from "../../i18n/LanguageContext";
 import { Dashboard } from "../Dashboard";
@@ -33,6 +34,18 @@ function OverviewBody() {
           <p className="font-mono-label text-[10px] uppercase tracking-[0.12em] text-primary">{linked.label}</p>
           {linked.title && <p className="mt-1.5 text-[18px] font-bold tracking-[-0.02em]">{linked.title}</p>}
           {linked.subtitle && <p className="mt-0.5 text-[13px] font-light text-muted-foreground">{linked.subtitle}</p>}
+        </div>
+      )}
+
+      {role === "restaurant" && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border-[1.5px] border-primary bg-white p-5">
+          <div>
+            <p className="text-[15px] font-bold tracking-[-0.01em]">{t.app.overview.submitCta.title}</p>
+            <p className="mt-1 text-[13px] font-light text-muted-foreground">{t.app.overview.submitCta.text}</p>
+          </div>
+          <Link to="/app/new" className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-dark">
+            {t.app.overview.submitCta.button}
+          </Link>
         </div>
       )}
 

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import type { NavKey } from "../../auth/roles";
 import { useLang } from "../../i18n/LanguageContext";
 
-export default function ComingSoon({ page }: { page: Exclude<NavKey, "dashboard"> }) {
+export default function ComingSoon({ page }: { page: Exclude<NavKey, "dashboard" | "newSurplus" | "myBatches"> }) {
   const { t } = useLang();
   const info = t.app.soon.pages[page];
   return (

@@ -1,6 +1,6 @@
 import type { Role } from "./AuthContext";
 
-export type NavKey = "dashboard" | "newSurplus" | "jobs" | "review" | "map" | "impact" | "myFridge";
+export type NavKey = "dashboard" | "newSurplus" | "myBatches" | "jobs" | "review" | "map" | "impact" | "myFridge";
 export type NavItem = { key: NavKey; to: string };
 
 /** Sidebar items per role. The first item is always the overview. */
@@ -8,6 +8,7 @@ export const NAV: Record<Role, NavItem[]> = {
   restaurant: [
     { key: "dashboard", to: "/app" },
     { key: "newSurplus", to: "/app/new" },
+    { key: "myBatches", to: "/app/batches" },
     { key: "impact", to: "/app/impact" },
   ],
   volunteer: [

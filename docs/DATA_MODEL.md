@@ -40,3 +40,8 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 - A trigger creates the profile at sign-up. Only `restaurant`, `volunteer` and `fridge_host` can be chosen by the user; `coordinator` is set by an administrator in SQL.
 - Row-level security (`supabase/02_policies.sql`, `05_auth_policies.sql`): restaurants see their own batches, volunteers see their own jobs, fridge hosts see batches headed to their fridge, coordinators see everything. The agent uses the service key on the server.
 - Demo accounts (`*.demo@barakat.test`) are linked to the most active sample records so every role has something to show.
+
+## Surplus submission (Step 4)
+- Restaurants cannot insert into `batches` or `batch_items` directly. They call `submit_surplus_batch(...)`, which checks the caller is a restaurant with a venue, validates the items against the rules in `app_config`, forces `status = 'draft'`, saves items and the first timeline event (`photo_received`) in one step.
+- Photos are stored in the private bucket `surplus-photos` under `<user id>/<batch id>.jpg`.
+- `src/lib/safety.ts` holds the screening logic (tier, safe window, reasons). The form uses it for a live preview; the server-side agent will reuse it in Step 6.

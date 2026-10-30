@@ -21,3 +21,22 @@ export function fmtClock(ms: number): string {
   const s = total % 60;
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
 }
+
+/** "5h 20m" in English, "5 س 20 د" in Arabic. */
+export function fmtMinutes(total: number, lang: Lang): string {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (lang === "ar") return h > 0 ? `${h} س ${m} د` : `${m} د`;
+  return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m} min`;
+}
+
+/** Clock time in Dubai (UTC+4), 24-hour. */
+export function fmtDubaiTime(date: Date): string {
+  return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Dubai" }).format(date);
+}
+
+/** Replaces {name} placeholders. */
+export function fill(text: string, params?: Record<string, string | number>): string {
+  if (!params) return text;
+  return text.replace(/\{(\w+)\}/g, (_, k: string) => (k in params ? String(params[k]) : `{${k}}`));
+}

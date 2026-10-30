@@ -1,14 +1,18 @@
-import { Leaf } from "lucide-react";
 import { useLang } from "../i18n/LanguageContext";
 
-/** Placeholder mark. The final logo is designed at the end of the project and replaces this file. */
-export function Logo({ light = false }: { light?: boolean }) {
+/** The BARAKAT emblem (public/logo.png, transparent background) plus the wordmark. */
+export function Logo({ light = false, size = 36 }: { light?: boolean; size?: number }) {
   const { t } = useLang();
   return (
     <span className="inline-flex items-center gap-2.5">
-      <span className="grid h-7 w-7 place-items-center rounded-[7px] bg-primary text-white">
-        <Leaf size={15} aria-hidden="true" />
-      </span>
+      {light ? (
+        // On dark backgrounds the emblem sits on a white disc so its dark outline stays readable.
+        <span className="grid place-items-center rounded-full bg-white p-1" style={{ width: size + 8, height: size + 8 }}>
+          <img src="/logo.png" alt="" width={size} height={size} className="block" />
+        </span>
+      ) : (
+        <img src="/logo.png" alt="" width={size} height={size} className="block" />
+      )}
       <span className={`text-[15px] font-bold tracking-[-0.02em] ${light ? "text-white" : "text-foreground"}`}>
         {t.brand.name}
       </span>

@@ -49,3 +49,7 @@ Never put the **service role** key in the website or in GitHub. It is only for t
    `restaurant.demo@barakat.test`, `volunteer.demo@barakat.test`, `host.demo@barakat.test`, `coordinator.demo@barakat.test`
 4. On the website's sign-in page, the four demo buttons now work in one tap.
 5. Before a real launch run `08_remove_demo_accounts.sql` and `04_drop_demo_read_policies.sql`. The demo coordinator can see all data.
+
+## Step 4: restaurant surplus form and photos
+Run `09_intake.sql` once (after 01 to 07). It adds the safe submit function the form calls, closes direct inserts on batches, and limits the private photo bucket so each person only uses their own folder.
+Then sign in as the Restaurant demo, open **New surplus**, fill the form and submit. In Supabase you can check the result: **Table Editor, then batches** (a new row with status `draft`) and **Storage, then surplus-photos** (your photo).
