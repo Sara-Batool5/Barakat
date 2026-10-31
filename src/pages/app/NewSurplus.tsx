@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Camera, Check, Plus, Trash2, X } from "lucide-react";
+import { Camera, Check, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import rules from "../../config/safetyRules.json";
 import { BatchError, createBatch } from "../../data/batches";
+import { analyzePhoto, type VisionResult } from "../../data/vision";
 import { useLang } from "../../i18n/LanguageContext";
 import { fill, fmtDubaiTime, fmtMinutes } from "../../lib/format";
 import { compressImage } from "../../lib/image";
@@ -43,6 +44,10 @@ export default function NewSurplus() {
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [done, setDone] = useState(false);
+  type Analysis = { status: "idle" | "running" | "done" | "error"; id?: string; result?: VisionResult; errorCode?: string; applied: boolean };
+  const [analysis, setAnalysis] = useState<Analysis>({ status: "idle", applied: false });
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
 
   useEffect(() => () => { if (photoUrl) URL.revokeObjectURL(photoUrl); }, [photoUrl]);
 
@@ -71,6 +76,7 @@ export default function NewSurplus() {
       const blob = await compressImage(file);
       setPhoto(blob);
       setPhotoUrl(URL.createObjectURL(blob));
+      void runAnalysis(blob);
     } catch (err) {
       setPhotoError(err instanceof Error && err.message === "too-big" ? S.photoBig : S.photoBad);
     }
@@ -78,6 +84,30 @@ export default function NewSurplus() {
   const removePhoto = () => {
     setPhoto(null);
     setPhotoUrl(null);
+    setAnalysis({ status: "idle", applied: false });
+  };
+
+  const rowsFrom = (list: VisionResult["items"]): Row[] =>
+    list.map((i) => ({ key: counter.current++, name: i.name, category: i.category, portions: String(i.portions), allergens: i.allergens }));
+
+  const runAnalysis = async (blob: Blob) => {
+    setAnalysis({ status: "running", applied: false });
+    try {
+      const out = await analyzePhoto(blob);
+      if (!out.ok) return setAnalysis({ status: "error", errorCode: out.code, applied: false });
+      const untouched = itemsRef.current.every((i) => !i.name.trim() && !i.category && !i.portions);
+      const usable = out.result.isFood && out.result.items.length > 0;
+      if (untouched && usable) setItems(rowsFrom(out.result.items));
+      setAnalysis({ status: "done", id: out.analysisId, result: out.result, applied: untouched && usable });
+    } catch {
+      setAnalysis({ status: "error", errorCode: "upstream", applied: false });
+    }
+  };
+
+  const applySuggestion = () => {
+    if (!analysis.result) return;
+    setItems(rowsFrom(analysis.result.items));
+    setAnalysis({ ...analysis, applied: true });
   };
 
   const onSubmit = async (e: FormEvent) => {
@@ -103,6 +133,7 @@ export default function NewSurplus() {
         storedTempC: hasChilled ? Number(temp) : null,
         pickupMinutes: Number(pickup),
         notes: notes.trim(),
+        analysisId: analysis.status === "done" ? analysis.id ?? null : null,
       });
       setDone(true);
     } catch (err) {
@@ -125,6 +156,7 @@ export default function NewSurplus() {
     setAttested(false);
     setErrors([]);
     setDone(false);
+    setAnalysis({ status: "idle", applied: false });
   };
 
   if (done) {
@@ -180,6 +212,89 @@ export default function NewSurplus() {
               </label>
             )}
             {photoError && <p role="alert" className="mt-3 text-[12px] text-danger">{photoError}</p>}
+
+            {photoUrl && (
+              <div className="mt-4 rounded-xl border border-border bg-surface/70 p-4" aria-live="polite">
+                <p className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                  <Sparkles size={15} className="text-primary" aria-hidden="true" />
+                  {S.vision.title}
+                </p>
+
+                {analysis.status === "running" && (
+                  <p className="mt-2 flex items-center gap-2 text-[12px] font-light text-muted-foreground" role="status">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary-muted border-t-primary" aria-hidden="true" />
+                    {S.vision.running}
+                  </p>
+                )}
+
+                {analysis.status === "error" && (
+                  <div className="mt-2">
+                    <p className="text-[12px] font-light leading-[1.6] text-muted-foreground">{S.vision.errors[analysis.errorCode ?? "upstream"] ?? S.vision.errors.upstream}</p>
+                    {photo && !["local", "unavailable", "not_configured", "forbidden"].includes(analysis.errorCode ?? "") && (
+                      <button type="button" onClick={() => void runAnalysis(photo)} className="mt-2 text-[12px] font-semibold text-primary">
+                        {S.vision.retry}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {analysis.status === "done" && analysis.result && (
+                  <div className="mt-2">
+                    {!analysis.result.isFood ? (
+                      <p className="text-[12px] font-medium text-amber">{S.vision.notFood}</p>
+                    ) : analysis.result.items.length === 0 ? (
+                      <p className="text-[12px] font-medium text-amber">{S.vision.noItems}</p>
+                    ) : (
+                      <>
+                        <p className="text-[12px] font-light text-foreground">{fill(S.vision.found, { n: analysis.result.items.length })}</p>
+                        {lang === "en" && analysis.result.summary && <p className="mt-1 text-[12px] font-light italic text-muted-foreground">{analysis.result.summary}</p>}
+                        <div className="mt-3 flex items-center gap-3">
+                          <span className="text-[11px] font-medium text-muted-foreground">{S.vision.confidence}</span>
+                          <span className="h-1.5 w-28 overflow-hidden rounded-full bg-surface-raised" aria-hidden="true">
+                            <span
+                              className={`block h-full rounded-full ${analysis.result.confidence >= 0.75 ? "bg-primary" : analysis.result.confidence >= 0.5 ? "bg-amber" : "bg-danger"}`}
+                              style={{ width: `${Math.round(analysis.result.confidence * 100)}%` }}
+                            />
+                          </span>
+                          <span className="text-[11px] font-semibold text-foreground">
+                            <bdi>{Math.round(analysis.result.confidence * 100)}%</bdi>{" "}
+                            {S.vision.levels[analysis.result.confidence >= 0.75 ? "high" : analysis.result.confidence >= 0.5 ? "medium" : "low"]}
+                          </span>
+                        </div>
+                        <ul className="mt-3 flex flex-col gap-1">
+                          {analysis.result.items.map((it, k) => (
+                            <li key={`${it.name}-${k}`} className="text-[12px] text-foreground">
+                              <span className="font-semibold">{it.name}</span>
+                              <span className="font-light text-muted-foreground"> · {categoryLabel(it.category)} · <bdi>{it.portions}</bdi></span>
+                            </li>
+                          ))}
+                        </ul>
+                        {analysis.result.photoQuality === "poor" && <p className="mt-3 text-[12px] font-medium text-amber">{S.vision.poorPhoto}</p>}
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          {analysis.applied ? (
+                            <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-primary">
+                              <Check size={13} strokeWidth={3} aria-hidden="true" />
+                              {S.vision.applied}
+                            </span>
+                          ) : (
+                            <button type="button" onClick={applySuggestion} className="rounded-lg bg-primary px-4 py-2 text-[12px] font-semibold text-white transition-colors hover:bg-primary-dark">
+                              {S.vision.apply}
+                            </button>
+                          )}
+                          {photo && (
+                            <button type="button" onClick={() => void runAnalysis(photo)} className="text-[12px] font-semibold text-primary">
+                              {S.vision.again}
+                            </button>
+                          )}
+                        </div>
+                        <p className="mt-3 text-[11px] font-light leading-[1.6] text-muted-foreground">{S.vision.allergenNote}</p>
+                      </>
+                    )}
+                  </div>
+                )}
+                <p className="mt-3 border-t border-border pt-2.5 text-[10px] font-light leading-[1.6] text-muted-foreground">{S.vision.privacy}</p>
+              </div>
+            )}
           </section>
 
           {/* 2. Items */}

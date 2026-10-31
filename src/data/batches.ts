@@ -14,6 +14,8 @@ export type NewBatchInput = {
   storedTempC: number | null;
   pickupMinutes: number;
   notes: string;
+  /** id of the photo analysis the form was filled from, if any */
+  analysisId?: string | null;
 };
 
 export type MyBatch = {
@@ -165,6 +167,7 @@ export async function createBatch(user: User, input: NewBatchInput): Promise<{ i
     p_notes: input.notes || null,
     p_photo_path: photoPath,
     p_items: input.items,
+    p_analysis_id: input.analysisId ?? null,
   });
   if (error) {
     if (photoPath) await sb.storage.from(BUCKET).remove([photoPath]);

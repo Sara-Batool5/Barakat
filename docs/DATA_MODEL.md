@@ -45,3 +45,9 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 - Restaurants cannot insert into `batches` or `batch_items` directly. They call `submit_surplus_batch(...)`, which checks the caller is a restaurant with a venue, validates the items against the rules in `app_config`, forces `status = 'draft'`, saves items and the first timeline event (`photo_received`) in one step.
 - Photos are stored in the private bucket `surplus-photos` under `<user id>/<batch id>.jpg`.
 - `src/lib/safety.ts` holds the screening logic (tier, safe window, reasons). The form uses it for a live preview; the server-side agent will reuse it in Step 6.
+
+## Vision step (Step 5)
+- `POST /api/analyze-photo` (Vercel function): checks the caller's sign-in and role with Supabase, calls Gemini with a strict JSON schema, validates the answer (known categories and allergens, portions 1 to 500, at most 8 items), saves it in `vision_analyses`, and returns it.
+- `vision_analyses` is written only by the server (service key). Restaurants can read their own rows.
+- `submit_surplus_batch(..., p_analysis_id)` copies the analysis confidence onto the batch and adds a `vision_read` event. An analysis can be used by one batch only.
+- The restaurant always reviews and can edit the suggestions before submitting. The safety gate (Step 6) makes the real decision.

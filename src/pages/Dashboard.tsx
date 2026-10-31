@@ -1,3 +1,4 @@
+import { FoodArt } from "../components/FoodArt";
 import { useLang } from "../i18n/LanguageContext";
 import { useCountdown, useDashboard } from "../data/useDashboard";
 import { fmtClock, fmtNumber, timeAgo } from "../lib/format";
@@ -108,13 +109,18 @@ export function Dashboard() {
                         <p className="text-[11px] font-light text-muted-foreground">{b.area}</p>
                       </td>
                       <td className="py-2.5 pe-3 font-light text-foreground">
-                        {b.items[0]}
-                        {b.items.length > 1 && (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            +{b.items.length - 1} {d.more}
+                        <span className="flex items-center gap-2.5">
+                          <FoodArt name={b.items[0]} className="h-9 w-12 shrink-0 rounded-md" />
+                          <span>
+                            {b.items[0]}
+                            {b.items.length > 1 && (
+                              <span className="text-muted-foreground">
+                                {" "}
+                                +{b.items.length - 1} {d.more}
+                              </span>
+                            )}
                           </span>
-                        )}
+                        </span>
                       </td>
                       <td className="py-2.5 pe-3 font-medium text-foreground">{b.portions}</td>
                       <td className="py-2.5 pe-3">

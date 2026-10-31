@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronDown, ImageOff } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { FoodArt } from "../../components/FoodArt";
 import rules from "../../config/safetyRules.json";
 import { listMyBatches, loadBatchEvents, type BatchEvent, type MyBatch } from "../../data/batches";
 import type { Tier } from "../../data/types";
@@ -86,8 +87,12 @@ export default function MyBatches() {
           return (
             <li key={b.id} className="rounded-[14px] border-[1.5px] border-border bg-white">
               <div className="flex flex-wrap items-center gap-4 p-4">
-                <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-surface-raised text-subtle">
-                  {b.photo ? <img src={b.photo} alt="" className="h-full w-full object-cover" /> : <ImageOff size={20} aria-label={B.noPhoto} />}
+                <div className="h-[72px] w-24 shrink-0 overflow-hidden rounded-lg bg-surface-raised">
+                  {b.photo ? (
+                    <img src={b.photo} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <FoodArt name={first?.name} category={first?.category} className="h-full w-full" />
+                  )}
                 </div>
                 <div className="min-w-[200px] flex-1">
                   <p className="text-[14px] font-semibold text-foreground">
@@ -117,6 +122,27 @@ export default function MyBatches() {
 
               {open && (
                 <div className="border-t border-border px-5 py-4">
+                  <div className="mb-4 flex flex-wrap items-start gap-4">
+                    <div className="h-[150px] w-[200px] shrink-0 overflow-hidden rounded-xl border border-border bg-surface-raised">
+                      {b.photo ? (
+                        <img src={b.photo} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <FoodArt name={first?.name} category={first?.category} className="h-full w-full" label={first?.name ?? ""} />
+                      )}
+                    </div>
+                    <div className="min-w-[200px] flex-1">
+                      <ul className="flex flex-col gap-1.5">
+                        {b.items.map((it, k) => (
+                          <li key={`${it.name}-${k}`} className="text-[12px] text-foreground">
+                            <span className="font-semibold">{it.name}</span>
+                            <span className="font-light text-muted-foreground"> · {categoryLabel(it.category)} · <bdi>{it.portions}</bdi></span>
+                          </li>
+                        ))}
+                      </ul>
+                      {!b.photo && <p className="mt-2 text-[11px] font-light text-muted-foreground">{B.sampleImage}</p>}
+                      {b.notes && <p className="mt-2 text-[12px] font-light text-muted-foreground">{b.notes}</p>}
+                    </div>
+                  </div>
                   {list === "loading" || list === undefined ? (
                     <p className="text-[12px] text-muted-foreground" role="status">{B.loading}</p>
                   ) : list === "error" ? (

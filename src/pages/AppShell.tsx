@@ -38,7 +38,7 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-screen bg-surface">
-      <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-white p-5 lg:flex">
+      <aside className="hidden w-64 shrink-0 flex-col self-start overflow-y-auto border-e border-border bg-white p-5 lg:sticky lg:top-0 lg:flex lg:h-screen">
         <Link to="/" aria-label={t.brand.name}>
           <Logo />
         </Link>

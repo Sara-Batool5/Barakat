@@ -53,3 +53,7 @@ Never put the **service role** key in the website or in GitHub. It is only for t
 ## Step 4: restaurant surplus form and photos
 Run `09_intake.sql` once (after 01 to 07). It adds the safe submit function the form calls, closes direct inserts on batches, and limits the private photo bucket so each person only uses their own folder.
 Then sign in as the Restaurant demo, open **New surplus**, fill the form and submit. In Supabase you can check the result: **Table Editor, then batches** (a new row with status `draft`) and **Storage, then surplus-photos** (your photo).
+
+## Step 5: the photo-reading agent
+Run `10_vision.sql` once (after 01 to 09; do not run 09 again afterwards). It adds the table that stores what the AI saw in each photo, and replaces the submit function so a batch can point at its analysis.
+The server also needs two secret values in Vercel: see the main README, section "Set up the photo-reading agent".
