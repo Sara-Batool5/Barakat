@@ -51,3 +51,9 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 - `vision_analyses` is written only by the server (service key). Restaurants can read their own rows.
 - `submit_surplus_batch(..., p_analysis_id)` copies the analysis confidence onto the batch and adds a `vision_read` event. An analysis can be used by one batch only.
 - The restaurant always reviews and can edit the suggestions before submitting. The safety gate (Step 6) makes the real decision.
+
+## Safety gate (Step 6)
+- `POST /api/screen-batch { batchId }` (Vercel function): checks the caller is the batch's restaurant (or a coordinator), loads the rules from `app_config`, and decides `listed`, `rejected` or `escalated` (confidence below `confidence.auto_list_min`, default 0.75).
+- It updates the batch (status, tier, `safe_until`, a pickup window capped 45 minutes before the safe window ends), saves a `safety_checks` row with the reasons, and writes `safety_check` plus `safe_window_set`, `rejected` or `escalated` events. A status guard (`status = 'draft'`) makes it safe to call twice.
+- The same screening logic lives in `src/lib/safety.ts` (form preview) and `api/screen-batch.ts` (server); a parity test compares them.
+- `expire_stale_batches()` runs every minute (pg_cron) and expires real batches whose `safe_until` has passed, cancelling their open jobs.

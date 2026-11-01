@@ -57,3 +57,8 @@ Then sign in as the Restaurant demo, open **New surplus**, fill the form and sub
 ## Step 5: the photo-reading agent
 Run `10_vision.sql` once (after 01 to 09; do not run 09 again afterwards). It adds the table that stores what the AI saw in each photo, and replaces the submit function so a batch can point at its analysis.
 The server also needs two secret values in Vercel: see the main README, section "Set up the photo-reading agent".
+
+## Step 6: the safety gate and the safe-window clock
+Run `11_safety.sql` once (after 01 to 10). It adds the minute-by-minute expiry of batches whose safe window has closed (using pg_cron, free on Supabase) and a helper for presentations:
+`select public.refresh_demo_data();` moves all sample timestamps forward so the sample batches look live again. Run it in the SQL Editor before showing the app to someone.
+If the file prints a notice about pg_cron, open **Database, then Extensions**, enable `pg_cron`, and run the file again.

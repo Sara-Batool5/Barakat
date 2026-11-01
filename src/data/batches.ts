@@ -1,6 +1,8 @@
 import type { User } from "../auth/AuthContext";
 import { blobToDataUrl } from "../lib/image";
+import { screenBatch } from "../lib/safety";
 import { supabase } from "../lib/supabase";
+import type { Outcome } from "./screen";
 import type { Tier } from "./types";
 
 const BUCKET = "surplus-photos";
@@ -24,6 +26,8 @@ export type MyBatch = {
   tier: Tier | null;
   portions: number;
   submittedAt: string;
+  /** when the food clock started (preparation time, or submission time) */
+  startedAt: string;
   safeUntil: string | null;
   notes: string | null;
   rejectReason: string | null;
@@ -78,31 +82,63 @@ async function thumbnail(blob: Blob): Promise<string> {
   }
 }
 
-async function createLocal(input: NewBatchInput): Promise<{ id: string }> {
+async function createLocal(input: NewBatchInput): Promise<{ id: string; outcome: Outcome }> {
   const id = `local-${Date.now()}`;
-  const now = new Date().toISOString();
-  const portions = input.items.reduce((s, i) => s + i.portions, 0);
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const portions = input.items.reduce((sum, i) => sum + i.portions, 0);
+
+  // No server in local mode, so the same screening logic runs here.
+  const screening = screenBatch({
+    items: input.items.map((i) => ({ category: i.category })),
+    preparedMinutesAgo: input.preparedMinutesAgo,
+    storedTempC: input.storedTempC,
+    now: nowDate,
+  });
+  const listed = screening.tier !== "red" && screening.missing.length === 0;
+  const status = listed ? "listed" : "rejected";
+  const safeUntil = listed && screening.safeUntil ? screening.safeUntil.toISOString() : null;
+  const rejectReason = listed ? null : "This batch did not pass the safety check.";
+  const startedAt = input.preparedMinutesAgo === null ? now : new Date(nowDate.getTime() - input.preparedMinutesAgo * 60000).toISOString();
+
+  const events: BatchEvent[] = [
+    { type: "photo_received", actor: "restaurant", tone: "neutral", title: "Surplus submitted", detail: `${portions} portions submitted by the restaurant`, createdAt: now },
+    { type: "safety_check", actor: "agent", tone: screening.tier === "red" ? "red" : screening.tier === "amber" ? "amber" : "green", title: `Safety check: ${screening.tier}`, detail: null, createdAt: new Date(nowDate.getTime() + 20).toISOString() },
+    listed
+      ? { type: "safe_window_set", actor: "agent", tone: "green", title: "Safe window set", detail: null, createdAt: new Date(nowDate.getTime() + 40).toISOString() }
+      : { type: "rejected", actor: "agent", tone: "red", title: "Batch declined", detail: rejectReason, createdAt: new Date(nowDate.getTime() + 40).toISOString() },
+  ];
   const batch: LocalBatch = {
     id,
-    status: "draft",
-    tier: null,
+    status,
+    tier: screening.tier,
     portions,
     submittedAt: now,
-    safeUntil: null,
+    startedAt,
+    safeUntil,
     notes: input.notes || null,
-    rejectReason: null,
+    rejectReason,
     photo: input.photo ? await thumbnail(input.photo) : null,
     items: input.items.map((i) => ({ name: i.name, category: i.category, portions: i.portions })),
-    events: [
-      { type: "photo_received", actor: "restaurant", tone: "neutral", title: "Surplus submitted", detail: `${portions} portions submitted by the restaurant`, createdAt: now },
-    ],
+    events,
   };
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify([batch, ...readLocal()].slice(0, 20)));
   } catch {
     throw new BatchError("save", "Browser storage is full.");
   }
-  return { id };
+  return {
+    id,
+    outcome: {
+      outcome: listed ? "listed" : "rejected",
+      status,
+      tier: screening.tier,
+      safeUntil,
+      safeMinutes: listed ? screening.safeMinutes : null,
+      reasons: screening.reasons,
+      rejectReason,
+    },
+  };
 }
 
 type SeedBatch = {
@@ -112,6 +148,7 @@ type SeedBatch = {
   tier: Tier | null;
   estPortions: number;
   submittedAt: string;
+  preparedAt: string | null;
   safeUntilAt: string | null;
   notes: string | null;
   rejectReason: string | null;
@@ -134,6 +171,7 @@ async function localSample(): Promise<{ batches: LocalBatch[] }> {
       tier: b.tier,
       portions: b.estPortions,
       submittedAt: at(b.submittedAt),
+      startedAt: at(b.preparedAt ?? b.submittedAt),
       safeUntil: b.safeUntilAt ? at(b.safeUntilAt) : null,
       notes: b.notes,
       rejectReason: b.rejectReason,
@@ -145,7 +183,7 @@ async function localSample(): Promise<{ batches: LocalBatch[] }> {
 }
 
 // ---------------------------------------------------------------- public API
-export async function createBatch(user: User, input: NewBatchInput): Promise<{ id: string }> {
+export async function createBatch(user: User, input: NewBatchInput): Promise<{ id: string; outcome?: Outcome }> {
   const sb = supabase;
   if (!sb || user.mode === "local") return createLocal(input);
 
@@ -187,7 +225,7 @@ export async function listMyBatches(user: User): Promise<MyBatch[]> {
 
   const { data, error } = await sb
     .from("batches")
-    .select("id,status,tier,est_portions,submitted_at,safe_until,photo_path,notes,reject_reason,batch_items(name,category,portions)")
+    .select("id,status,tier,est_portions,submitted_at,prepared_at,safe_until,photo_path,notes,reject_reason,batch_items(name,category,portions)")
     .eq("restaurant_id", user.restaurantId)
     .order("submitted_at", { ascending: false })
     .limit(60);
@@ -207,6 +245,7 @@ export async function listMyBatches(user: User): Promise<MyBatch[]> {
     tier: (r.tier as Tier | null) ?? null,
     portions: r.est_portions ?? 0,
     submittedAt: r.submitted_at,
+    startedAt: r.prepared_at ?? r.submitted_at,
     safeUntil: r.safe_until ?? null,
     notes: r.notes ?? null,
     rejectReason: r.reject_reason ?? null,

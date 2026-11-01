@@ -12,7 +12,7 @@ export type VisionResult = {
 
 export type AnalyzeOutcome =
   | { ok: true; analysisId: string; model: string; result: VisionResult }
-  | { ok: false; code: "local" | "unavailable" | "not_configured" | "unauthorized" | "forbidden" | "rate_limited" | "too_large" | "blocked" | "upstream" | "network" };
+  | { ok: false; code: "local" | "unavailable" | "not_configured" | "unauthorized" | "forbidden" | "rate_limited" | "too_large" | "blocked" | "setup" | "upstream" | "network"; detail?: string };
 
 /** Sends the (already compressed) photo to the agent's vision step on the server. */
 export async function analyzePhoto(photo: Blob): Promise<AnalyzeOutcome> {
@@ -35,7 +35,7 @@ export async function analyzePhoto(photo: Blob): Promise<AnalyzeOutcome> {
     return { ok: false, code: "network" };
   }
 
-  let body: { ok?: boolean; code?: string; analysisId?: string; model?: string; result?: VisionResult } | null = null;
+  let body: { ok?: boolean; code?: string; message?: string; analysisId?: string; model?: string; result?: VisionResult; detail?: { model: string; variant: string; status: number; error?: string }[] } | null = null;
   try {
     body = await res.json();
   } catch {
@@ -46,7 +46,9 @@ export async function analyzePhoto(photo: Blob): Promise<AnalyzeOutcome> {
     return { ok: true, analysisId: body.analysisId, model: body.model ?? "", result: body.result };
   }
   if (res.status === 404 || (!body && res.status >= 400 && res.status < 500)) return { ok: false, code: "unavailable" };
-  const known = ["not_configured", "unauthorized", "forbidden", "rate_limited", "too_large", "blocked", "upstream"] as const;
+  const known = ["not_configured", "unauthorized", "forbidden", "rate_limited", "too_large", "blocked", "setup", "upstream"] as const;
   const code = known.find((k) => k === body?.code);
-  return { ok: false, code: code ?? "upstream" };
+  const lines = (body?.detail ?? []).map((a) => `${a.model} (${a.variant}) -> HTTP ${a.status}${a.error ? `: ${a.error}` : ""}`);
+  if (body?.message && lines.length === 0) lines.push(body.message);
+  return { ok: false, code: code ?? "upstream", detail: lines.length ? lines.join("\n") : undefined };
 }

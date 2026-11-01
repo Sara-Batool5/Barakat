@@ -10,7 +10,8 @@
  *   GEMINI_API_KEY             from Google AI Studio (free tier is enough)
  *   SUPABASE_SERVICE_ROLE_KEY  the project's secret / service_role key
  * It also reads VITE_SUPABASE_URL (or SUPABASE_URL), which the website already uses.
- * Optional: GEMINI_MODEL (default gemini-2.5-flash), GEMINI_FALLBACK_MODEL (default gemini-2.5-flash-lite).
+ * Optional: GEMINI_MODEL, tried first. Otherwise the models in DEFAULT_MODELS are tried in order.
+ * (Google has been retiring the Gemini 2.5 models, so the defaults are the Gemini 3 family.)
  *
  * This file is deliberately self-contained (no imports) so it deploys the same way everywhere.
  * Keep CATEGORIES in sync with src/config/safetyRules.json.
@@ -131,24 +132,34 @@ function sbHeaders(key: string, extra: Record<string, string> = {}): Record<stri
   return { apikey: key, ...(key.startsWith("eyJ") ? { Authorization: `Bearer ${key}` } : {}), "Content-Type": "application/json", ...extra };
 }
 
-async function callGemini(model: string, apiKey: string, mime: string, b64: string): Promise<{ status: number; json: any }> {
+/** Free-tier-eligible models that read images, newest stable first. Google retires models often, so we try several. */
+export const DEFAULT_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-flash-lite-latest"];
+
+type Variant = "full" | "no_thinking" | "no_schema";
+type Attempt = { model: string; variant: Variant; status: number; error?: string };
+
+function buildRequest(variant: Variant, model: string, mime: string, b64: string) {
+  const generationConfig: Record<string, unknown> = { responseMimeType: "application/json", maxOutputTokens: 8192 };
+  if (variant !== "no_schema") generationConfig.responseSchema = RESPONSE_SCHEMA;
+  if (variant === "full") {
+    // Gemini 3 models use thinkingLevel; older 2.x models used thinkingBudget.
+    generationConfig.thinkingConfig = model.startsWith("gemini-2.") ? { thinkingBudget: 0 } : { thinkingLevel: "minimal" };
+  }
+  return {
+    contents: [{ role: "user", parts: [{ text: PROMPT }, { inline_data: { mime_type: mime, data: b64 } }] }],
+    generationConfig,
+  };
+}
+
+async function callGemini(model: string, variant: Variant, apiKey: string, mime: string, b64: string, timeoutMs: number): Promise<{ status: number; json: any }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       signal: controller.signal,
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: PROMPT }, { inline_data: { mime_type: mime, data: b64 } }] }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-          thinkingConfig: { thinkingBudget: 0 },
-          maxOutputTokens: 2048,
-        },
-      }),
+      body: JSON.stringify(buildRequest(variant, model, mime, b64)),
     });
     let json: any = null;
     try {
@@ -226,36 +237,58 @@ export default async function handler(req: Req, res: Res) {
     /* if the check fails, carry on; Gemini's own limits still apply */
   }
 
-  // 5. Ask Gemini (primary model first, then a lighter fallback if it is busy or unavailable).
-  const models = [env.GEMINI_MODEL || "gemini-2.5-flash", env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash-lite"];
+  // 5. Ask Gemini. Try each model in turn; if a model rejects our settings (HTTP 400), retry it with simpler settings.
+  const models = Array.from(new Set([env.GEMINI_MODEL, env.GEMINI_FALLBACK_MODEL, ...DEFAULT_MODELS].filter((m): m is string => !!m)));
+  const deadline = Date.now() + 24000;
+  const attempts: Attempt[] = [];
   let parsed: unknown = null;
   let usedModel = "";
-  let lastStatus = 0;
   let blocked = false;
-  for (const model of models) {
-    try {
-      const { status, json } = await callGemini(model, geminiKey, mime, b64);
-      lastStatus = status;
+  outer: for (const model of models) {
+    for (const variant of ["full", "no_thinking", "no_schema"] as Variant[]) {
+      const left = deadline - Date.now();
+      if (left < 2500) break outer;
+      let status = 0;
+      let json: any = null;
+      try {
+        ({ status, json } = await callGemini(model, variant, geminiKey, mime, b64, Math.min(15000, left - 500)));
+      } catch (err) {
+        attempts.push({ model, variant, status: 0, error: err instanceof Error ? err.message.slice(0, 120) : "network error" });
+        break; // network trouble or timeout: move on to the next model
+      }
       if (status === 200) {
         if (json?.promptFeedback?.blockReason) {
           blocked = true;
-          break;
+          break outer;
         }
         const text = (json?.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? "").join("").trim();
         const cleaned = text.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-        parsed = cleaned ? JSON.parse(cleaned) : null;
+        try {
+          parsed = cleaned ? JSON.parse(cleaned) : null;
+        } catch {
+          parsed = null;
+        }
         if (parsed) {
           usedModel = model;
-          break;
+          break outer;
         }
+        attempts.push({ model, variant, status, error: "The answer was empty or not valid JSON" });
+        continue;
       }
-    } catch {
-      lastStatus = 0;
+      attempts.push({ model, variant, status, error: String(json?.error?.message ?? "").slice(0, 200) || undefined });
+      if (status !== 400) break; // only HTTP 400 is worth retrying with simpler settings
     }
   }
   if (blocked) return fail(res, 422, "blocked", "The photo could not be analysed.");
   if (!parsed) {
-    return fail(res, lastStatus === 429 ? 429 : 502, lastStatus === 429 ? "rate_limited" : "upstream", "The AI service did not return a usable answer.");
+    console.error("analyze-photo: every Gemini attempt failed", JSON.stringify(attempts));
+    const allBusy = attempts.length > 0 && attempts.every((a) => a.status === 429);
+    return res.status(allBusy ? 429 : 502).json({
+      ok: false,
+      code: allBusy ? "rate_limited" : "upstream",
+      message: "The AI service did not return a usable answer.",
+      detail: attempts,
+    });
   }
 
   const result = sanitize(parsed);
@@ -273,7 +306,7 @@ export default async function handler(req: Req, res: Res) {
   } catch {
     analysisId = null;
   }
-  if (!analysisId) return fail(res, 502, "upstream", "The analysis could not be saved. Run supabase/10_vision.sql first.");
+  if (!analysisId) return fail(res, 502, "setup", "The analysis could not be saved. Run supabase/10_vision.sql first.");
 
   res.status(200).json({ ok: true, analysisId, model: usedModel, result });
 }

@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import { FoodArt } from "../../components/FoodArt";
+import { SafeClock } from "../../components/SafeClock";
+import { runSafetyCheck } from "../../data/screen";
 import rules from "../../config/safetyRules.json";
 import { listMyBatches, loadBatchEvents, type BatchEvent, type MyBatch } from "../../data/batches";
 import type { Tier } from "../../data/types";
@@ -30,6 +32,8 @@ export default function MyBatches() {
   const B = t.batches;
   const [state, setState] = useState<{ loading: boolean; batches: MyBatch[]; error: boolean }>({ loading: true, batches: [], error: false });
   const [openId, setOpenId] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  const [checkState, setCheckState] = useState<Record<string, string>>({});
   const [events, setEvents] = useState<Record<string, BatchEvent[] | "loading" | "error">>({});
 
   useEffect(() => {
@@ -44,7 +48,7 @@ export default function MyBatches() {
     return () => {
       alive = false;
     };
-  }, [user?.id, user?.restaurantId, user?.mode]);
+  }, [user?.id, user?.restaurantId, user?.mode, reload]);
 
   if (!user) return null;
 
@@ -56,6 +60,26 @@ export default function MyBatches() {
       loadBatchEvents(user, id)
         .then((list) => setEvents((cur) => ({ ...cur, [id]: list })))
         .catch(() => setEvents((cur) => ({ ...cur, [id]: "error" })));
+    }
+  };
+
+  const runCheck = async (id: string) => {
+    setCheckState((cur) => ({ ...cur, [id]: "running" }));
+    const r = await runSafetyCheck(id);
+    if (r.ok) {
+      setCheckState((cur) => {
+        const next = { ...cur };
+        delete next[id];
+        return next;
+      });
+      setEvents((cur) => {
+        const next = { ...cur };
+        delete next[id];
+        return next;
+      });
+      setReload((n) => n + 1);
+    } else {
+      setCheckState((cur) => ({ ...cur, [id]: r.code }));
     }
   };
 
@@ -102,8 +126,28 @@ export default function MyBatches() {
                   <p className="mt-0.5 text-[12px] font-light text-muted-foreground">
                     {first ? categoryLabel(first.category) : ""} · <bdi>{b.portions}</bdi> {t.app.overview.portions} · {timeAgo(b.submittedAt, lang)}
                   </p>
-                  {b.status === "draft" && <p className="mt-1 text-[11px] font-medium text-muted-foreground">{B.waiting}</p>}
-                  {b.safeUntil && b.tier !== "red" && (
+                  {b.status === "draft" && (
+                    <div className="mt-1.5">
+                      <p className="text-[11px] font-medium text-muted-foreground">{B.waiting}</p>
+                      <button
+                        type="button"
+                        disabled={checkState[b.id] === "running"}
+                        onClick={() => void runCheck(b.id)}
+                        className="mt-1.5 rounded-lg border border-primary px-3 py-1.5 text-[11px] font-semibold text-primary transition-colors hover:bg-primary-light disabled:opacity-60"
+                      >
+                        {checkState[b.id] === "running" ? B.checking : B.runCheck}
+                      </button>
+                      {checkState[b.id] && checkState[b.id] !== "running" && (
+                        <p role="alert" className="mt-1 text-[11px] text-danger">{B.checkErrors[checkState[b.id]] ?? B.checkErrors.upstream}</p>
+                      )}
+                    </div>
+                  )}
+                  {b.safeUntil && ["listed", "matched", "dispatched", "picked_up", "escalated"].includes(b.status) && (
+                    <div className="mt-2 max-w-[280px]">
+                      <SafeClock safeUntil={b.safeUntil} startedAt={b.startedAt} />
+                    </div>
+                  )}
+                  {b.safeUntil && b.tier !== "red" && !["listed", "matched", "dispatched", "picked_up", "escalated"].includes(b.status) && (
                     <p className="mt-1 text-[11px] font-light text-muted-foreground">{B.safeUntil} <bdi className="font-medium">{fmtDubaiTime(new Date(b.safeUntil))}</bdi></p>
                   )}
                   {b.rejectReason && lang === "en" && <p className="mt-1 text-[11px] text-danger">{B.reason}: {b.rejectReason}</p>}

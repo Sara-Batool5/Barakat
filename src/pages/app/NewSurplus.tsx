@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { Camera, Check, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { Camera, Check, Clock, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import rules from "../../config/safetyRules.json";
 import { BatchError, createBatch } from "../../data/batches";
+import { SafeClock } from "../../components/SafeClock";
+import { runSafetyCheck, type Outcome } from "../../data/screen";
 import { analyzePhoto, type VisionResult } from "../../data/vision";
 import { useLang } from "../../i18n/LanguageContext";
 import { fill, fmtDubaiTime, fmtMinutes } from "../../lib/format";
@@ -44,8 +46,13 @@ export default function NewSurplus() {
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [done, setDone] = useState(false);
-  type Analysis = { status: "idle" | "running" | "done" | "error"; id?: string; result?: VisionResult; errorCode?: string; applied: boolean };
+  type Analysis = { status: "idle" | "running" | "done" | "error"; id?: string; result?: VisionResult; errorCode?: string; detail?: string; applied: boolean };
   const [analysis, setAnalysis] = useState<Analysis>({ status: "idle", applied: false });
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [outcomeAt, setOutcomeAt] = useState<string>(() => new Date().toISOString());
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -94,7 +101,7 @@ export default function NewSurplus() {
     setAnalysis({ status: "running", applied: false });
     try {
       const out = await analyzePhoto(blob);
-      if (!out.ok) return setAnalysis({ status: "error", errorCode: out.code, applied: false });
+      if (!out.ok) return setAnalysis({ status: "error", errorCode: out.code, detail: out.detail, applied: false });
       const untouched = itemsRef.current.every((i) => !i.name.trim() && !i.category && !i.portions);
       const usable = out.result.isFood && out.result.items.length > 0;
       if (untouched && usable) setItems(rowsFrom(out.result.items));
@@ -102,6 +109,20 @@ export default function NewSurplus() {
     } catch {
       setAnalysis({ status: "error", errorCode: "upstream", applied: false });
     }
+  };
+
+  const receive = (o: Outcome) => {
+    setOutcome(o);
+    setOutcomeAt(new Date().toISOString());
+  };
+
+  const checkNow = async (id: string) => {
+    setChecking(true);
+    setCheckError(null);
+    const r = await runSafetyCheck(id);
+    setChecking(false);
+    if (r.ok) receive(r.data);
+    else setCheckError(r.code);
   };
 
   const applySuggestion = () => {
@@ -125,7 +146,7 @@ export default function NewSurplus() {
 
     setBusy(true);
     try {
-      await createBatch(user, {
+      const created = await createBatch(user, {
         photo,
         items: cleaned,
         preparedMinutesAgo: prepared === "" ? null : Number(prepared),
@@ -135,7 +156,10 @@ export default function NewSurplus() {
         notes: notes.trim(),
         analysisId: analysis.status === "done" ? analysis.id ?? null : null,
       });
+      setCreatedId(created.id);
       setDone(true);
+      if (created.outcome) receive(created.outcome);
+      else void checkNow(created.id);
     } catch (err) {
       console.error(err);
       const code = err instanceof BatchError ? err.code : "save";
@@ -156,17 +180,53 @@ export default function NewSurplus() {
     setAttested(false);
     setErrors([]);
     setDone(false);
+    setCreatedId(null);
+    setOutcome(null);
+    setChecking(false);
+    setCheckError(null);
     setAnalysis({ status: "idle", applied: false });
   };
 
   if (done) {
+    const O = S.outcome;
+    const kind = outcome?.outcome;
+    const title = kind === "listed" ? O.listedTitle : kind === "rejected" ? O.rejectedTitle : kind === "escalated" ? O.escalatedTitle : checking ? O.checking : O.pendingTitle;
+    const text = kind === "listed" ? O.listedText : kind === "rejected" ? O.rejectedText : kind === "escalated" ? O.escalatedText : checking ? "" : O.pendingText;
+    const bad = kind === "rejected";
     return (
-      <div className="max-w-[560px] rounded-[14px] border-[1.5px] border-primary-muted bg-white p-8">
-        <span className="grid h-11 w-11 place-items-center rounded-full bg-primary-light text-primary">
-          <Check size={22} strokeWidth={3} aria-hidden="true" />
+      <div className={`max-w-[600px] rounded-[14px] border-[1.5px] bg-white p-8 ${bad ? "border-danger" : kind === "escalated" ? "border-amber" : "border-primary-muted"}`}>
+        <span className={`grid h-11 w-11 place-items-center rounded-full ${bad ? "bg-danger-light text-danger" : kind === "escalated" || !kind ? "bg-amber-light text-amber" : "bg-primary-light text-primary"}`}>
+          {bad ? <X size={22} strokeWidth={3} aria-hidden="true" /> : kind === "listed" ? <Check size={22} strokeWidth={3} aria-hidden="true" /> : <Clock size={22} aria-hidden="true" />}
         </span>
-        <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.04em]">{S.successTitle}</h1>
-        <p className="mt-2 text-[14px] font-light leading-[1.8] text-muted-foreground">{S.successText}</p>
+        <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.04em]">{title}</h1>
+        {checking && <p className="mt-2 text-[13px] font-light text-muted-foreground" role="status">{O.checkingText}</p>}
+        {text && <p className="mt-2 text-[14px] font-light leading-[1.8] text-muted-foreground">{text}</p>}
+
+        {outcome && (
+          <div className="mt-4 flex flex-col gap-3">
+            <span className={`inline-block self-start rounded-full px-3 py-1 text-[12px] font-bold ${tierStyle[outcome.tier]}`}>{t.safety.cards[tierIndex[outcome.tier]].name}</span>
+            {outcome.safeUntil && outcome.outcome !== "rejected" && (
+              <div className="max-w-[320px]">
+                <p className="mb-2 text-[13px] text-foreground">
+                  {S.safeFor} <span className="font-bold text-primary"><bdi>{fmtMinutes(outcome.safeMinutes ?? 0, lang)}</bdi></span> {S.until} <bdi className="font-semibold">{fmtDubaiTime(new Date(outcome.safeUntil))}</bdi>
+                </p>
+                <SafeClock safeUntil={outcome.safeUntil} startedAt={outcomeAt} />
+              </div>
+            )}
+            <ul className="flex flex-col gap-1.5">
+              {outcome.reasons.map((r, i) => (
+                <li key={`${r.code}-${i}`} className="text-[12px] font-light leading-[1.6] text-muted-foreground">{fill(S.reasons[r.code] ?? r.code, r.params)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {checkError && createdId && (
+          <button type="button" onClick={() => void checkNow(createdId)} className="mt-4 rounded-lg border border-primary px-4 py-2 text-[12px] font-semibold text-primary">
+            {O.retry}
+          </button>
+        )}
+
         <div className="mt-6 flex flex-wrap gap-3">
           <button type="button" onClick={reset} className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-dark">
             {S.another}
@@ -230,6 +290,12 @@ export default function NewSurplus() {
                 {analysis.status === "error" && (
                   <div className="mt-2">
                     <p className="text-[12px] font-light leading-[1.6] text-muted-foreground">{S.vision.errors[analysis.errorCode ?? "upstream"] ?? S.vision.errors.upstream}</p>
+                    {analysis.detail && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-[11px] font-medium text-muted-foreground">{S.vision.details}</summary>
+                        <pre dir="ltr" className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-white p-2 text-[10px] text-muted-foreground">{analysis.detail}</pre>
+                      </details>
+                    )}
                     {photo && !["local", "unavailable", "not_configured", "forbidden"].includes(analysis.errorCode ?? "") && (
                       <button type="button" onClick={() => void runAnalysis(photo)} className="mt-2 text-[12px] font-semibold text-primary">
                         {S.vision.retry}
