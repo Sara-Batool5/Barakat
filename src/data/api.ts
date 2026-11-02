@@ -17,7 +17,7 @@ async function fromSupabase(): Promise<DashboardData> {
       .order("code", { ascending: true }),
     sb
       .from("batches")
-      .select("id,status,tier,est_portions,submitted_at,restaurants(name,area),batch_items(name)")
+      .select("id,status,tier,est_portions,submitted_at,photo_path,restaurants(name,area),batch_items(name)")
       .order("submitted_at", { ascending: false })
       .limit(10),
     sb.from("v_platform_totals").select("*").maybeSingle(),
@@ -52,6 +52,19 @@ async function fromSupabase(): Promise<DashboardData> {
     open24h: f.open_24h,
   }));
 
+  // Real photos live in a private bucket, so each one needs a short-lived signed link.
+  // Coordinators and the restaurant that uploaded a photo can open it; everyone else gets the illustration.
+  const photoPaths = (recentRes.data ?? []).map((b: any) => b.photo_path as string | null).filter((x: string | null): x is string => !!x);
+  const photoUrls = new Map<string, string>();
+  if (photoPaths.length > 0) {
+    try {
+      const { data: signed } = await sb.storage.from("surplus-photos").createSignedUrls(photoPaths, 3600);
+      for (const s of signed ?? []) if (s.path && s.signedUrl) photoUrls.set(s.path, s.signedUrl);
+    } catch {
+      /* fall back to illustrations */
+    }
+  }
+
   const recent: RecentBatch[] = (recentRes.data ?? []).map((b: any) => {
     const rest = Array.isArray(b.restaurants) ? b.restaurants[0] : b.restaurants;
     return {
@@ -63,6 +76,7 @@ async function fromSupabase(): Promise<DashboardData> {
       portions: b.est_portions ?? 0,
       items: (b.batch_items ?? []).map((i: any) => i.name),
       submittedAt: b.submitted_at,
+      photo: b.photo_path ? photoUrls.get(b.photo_path) ?? null : null,
     };
   });
 
@@ -158,6 +172,7 @@ async function fromSample(): Promise<DashboardData> {
       portions: b.estPortions,
       items: b.items.map((i) => i.name),
       submittedAt: at(b.submittedAt),
+      photo: null,
     })),
     fridges: seed.fridges,
   };

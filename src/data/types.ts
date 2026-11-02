@@ -22,6 +22,8 @@ export type RecentBatch = {
   portions: number;
   items: string[];
   submittedAt: string;
+  /** a signed link to the real photo, when there is one this person may see */
+  photo: string | null;
 };
 
 export type DashboardData = {

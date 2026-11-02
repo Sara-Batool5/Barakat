@@ -9,14 +9,21 @@ export function useDashboard(): State {
 
   useEffect(() => {
     let alive = true;
-    loadDashboard()
-      .then((data) => alive && setState({ loading: false, data, error: false }))
-      .catch((err) => {
-        console.error(err);
-        if (alive) setState({ loading: false, data: null, error: true });
-      });
+    const load = () =>
+      loadDashboard()
+        .then((data) => alive && setState({ loading: false, data, error: false }))
+        .catch((err) => {
+          console.error(err);
+          if (alive) setState((cur) => (cur.data ? cur : { loading: false, data: null, error: true }));
+        });
+    void load();
+    // Keep the numbers fresh while the page is open (the agent works in the background).
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 20000);
     return () => {
       alive = false;
+      window.clearInterval(id);
     };
   }, []);
 

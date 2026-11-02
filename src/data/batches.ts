@@ -32,6 +32,7 @@ export type MyBatch = {
   notes: string | null;
   rejectReason: string | null;
   photo: string | null;
+  fridge: { code: string; name: string; area: string } | null;
   items: { name: string; category: string; portions: number }[];
 };
 
@@ -119,6 +120,7 @@ async function createLocal(input: NewBatchInput): Promise<{ id: string; outcome:
     notes: input.notes || null,
     rejectReason,
     photo: input.photo ? await thumbnail(input.photo) : null,
+    fridge: null,
     items: input.items.map((i) => ({ name: i.name, category: i.category, portions: i.portions })),
     events,
   };
@@ -176,6 +178,7 @@ async function localSample(): Promise<{ batches: LocalBatch[] }> {
       notes: b.notes,
       rejectReason: b.rejectReason,
       photo: null,
+      fridge: null,
       items: b.items,
       events: b.events.map((e) => ({ ...e, detail: e.detail, createdAt: at(e.createdAt) })),
     }));
@@ -225,7 +228,7 @@ export async function listMyBatches(user: User): Promise<MyBatch[]> {
 
   const { data, error } = await sb
     .from("batches")
-    .select("id,status,tier,est_portions,submitted_at,prepared_at,safe_until,photo_path,notes,reject_reason,batch_items(name,category,portions)")
+    .select("id,status,tier,est_portions,submitted_at,prepared_at,safe_until,photo_path,notes,reject_reason,batch_items(name,category,portions),fridges(code,name,area)")
     .eq("restaurant_id", user.restaurantId)
     .order("submitted_at", { ascending: false })
     .limit(60);
@@ -250,6 +253,7 @@ export async function listMyBatches(user: User): Promise<MyBatch[]> {
     notes: r.notes ?? null,
     rejectReason: r.reject_reason ?? null,
     photo: r.photo_path ? urls.get(r.photo_path) ?? null : null,
+    fridge: (Array.isArray(r.fridges) ? r.fridges[0] : r.fridges) ?? null,
     items: (r.batch_items ?? []).map((i: any) => ({ name: i.name, category: i.category, portions: i.portions })),
   }));
 }

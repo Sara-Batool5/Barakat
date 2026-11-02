@@ -10,6 +10,7 @@ import Overview from "./pages/app/Overview";
 import ComingSoon from "./pages/app/ComingSoon";
 import NewSurplus from "./pages/app/NewSurplus";
 import MyBatches from "./pages/app/MyBatches";
+import Jobs from "./pages/app/Jobs";
 
 function FullPageMessage() {
   const { t } = useLang();
@@ -69,7 +70,7 @@ export default function App() {
           <Route index element={<Overview />} />
           <Route path="new" element={<RoleOnly roles={["restaurant"]}><NewSurplus /></RoleOnly>} />
           <Route path="batches" element={<RoleOnly roles={["restaurant"]}><MyBatches /></RoleOnly>} />
-          <Route path="jobs" element={<RoleOnly roles={["volunteer"]}><ComingSoon page="jobs" /></RoleOnly>} />
+          <Route path="jobs" element={<RoleOnly roles={["volunteer"]}><Jobs /></RoleOnly>} />
           <Route path="review" element={<RoleOnly roles={["coordinator"]}><ComingSoon page="review" /></RoleOnly>} />
           <Route path="map" element={<RoleOnly roles={["volunteer", "coordinator", "fridge_host"]}><ComingSoon page="map" /></RoleOnly>} />
           <Route path="impact" element={<RoleOnly roles={["restaurant", "coordinator"]}><ComingSoon page="impact" /></RoleOnly>} />

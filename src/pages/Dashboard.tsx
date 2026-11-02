@@ -110,7 +110,11 @@ export function Dashboard() {
                       </td>
                       <td className="py-2.5 pe-3 font-light text-foreground">
                         <span className="flex items-center gap-2.5">
-                          <FoodArt name={b.items[0]} className="h-9 w-12 shrink-0 rounded-md" />
+                          {b.photo ? (
+                            <img src={b.photo} alt="" className="h-9 w-12 shrink-0 rounded-md object-cover" />
+                          ) : (
+                            <FoodArt name={b.items[0]} className="h-9 w-12 shrink-0 rounded-md" />
+                          )}
                           <span>
                             {b.items[0]}
                             {b.items.length > 1 && (

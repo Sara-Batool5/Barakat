@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Camera, ClipboardList, FileText, LayoutDashboard, LogOut, MapPin, ShieldCheck, Snowflake, Truck, type LucideIcon } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { NAV, type NavKey } from "../auth/roles";
+import { sendTick } from "../data/dispatch";
 import { Logo } from "../components/Logo";
 import { LanguageToggle } from "../components/LanguageToggle";
 import { useLang } from "../i18n/LanguageContext";
@@ -21,6 +23,18 @@ export default function AppShell() {
   const { t } = useLang();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  // While the app is open, let the agent do its housekeeping every 15 seconds (lapsed offers, retries, demo volunteers).
+  useEffect(() => {
+    if (!user || user.mode !== "supabase") return;
+    const run = () => {
+      if (document.visibilityState === "visible") void sendTick();
+    };
+    run();
+    const id = window.setInterval(run, 15000);
+    return () => window.clearInterval(id);
+  }, [user?.id, user?.mode]);
+
   if (!user) return null;
 
   const roleName = t.login.roles[user.role].name;

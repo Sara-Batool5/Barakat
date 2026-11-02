@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/AuthContext";
 import rules from "../../config/safetyRules.json";
 import { BatchError, createBatch } from "../../data/batches";
 import { SafeClock } from "../../components/SafeClock";
+import { matchBatch, type MatchData } from "../../data/dispatch";
 import { runSafetyCheck, type Outcome } from "../../data/screen";
 import { analyzePhoto, type VisionResult } from "../../data/vision";
 import { useLang } from "../../i18n/LanguageContext";
@@ -53,6 +54,7 @@ export default function NewSurplus() {
   const [outcomeAt, setOutcomeAt] = useState<string>(() => new Date().toISOString());
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [match, setMatch] = useState<{ status: "running" | "done" | "error"; data?: MatchData } | null>(null);
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -121,8 +123,16 @@ export default function NewSurplus() {
     setCheckError(null);
     const r = await runSafetyCheck(id);
     setChecking(false);
-    if (r.ok) receive(r.data);
-    else setCheckError(r.code);
+    if (r.ok) {
+      receive(r.data);
+      if (r.data.outcome === "listed") void matchNow(id);
+    } else setCheckError(r.code);
+  };
+
+  const matchNow = async (id: string) => {
+    setMatch({ status: "running" });
+    const m = await matchBatch(id);
+    setMatch(m.ok ? { status: "done", data: m.data } : { status: "error" });
   };
 
   const applySuggestion = () => {
@@ -184,6 +194,7 @@ export default function NewSurplus() {
     setOutcome(null);
     setChecking(false);
     setCheckError(null);
+    setMatch(null);
     setAnalysis({ status: "idle", applied: false });
   };
 
@@ -218,6 +229,27 @@ export default function NewSurplus() {
                 <li key={`${r.code}-${i}`} className="text-[12px] font-light leading-[1.6] text-muted-foreground">{fill(S.reasons[r.code] ?? r.code, r.params)}</li>
               ))}
             </ul>
+            {match && (
+              <div className="rounded-xl border border-primary-muted bg-primary-light/50 p-4">
+                {match.status === "running" && <p className="text-[12px] font-light text-muted-foreground" role="status">{S.match.matching}</p>}
+                {match.status === "error" && <p className="text-[12px] font-light text-muted-foreground">{S.match.error}</p>}
+                {match.status === "done" && match.data && (
+                  <div className="flex flex-col gap-1.5 text-[12px]">
+                    {match.data.fridge ? (
+                      <>
+                        <p className="font-semibold text-foreground">{S.match.matched}</p>
+                        <p className="font-light text-foreground">{fill(S.match.fridgeLine, { code: match.data.fridge.code, name: match.data.fridge.name, km: match.data.fridge.distanceKm.toFixed(1) })}</p>
+                        <p className="font-light text-muted-foreground">
+                          {match.data.offer?.sent ? S.match.offered : match.data.offer?.reason === "escalated" ? S.match.escalated : S.match.noVolunteer}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="font-light text-muted-foreground">{S.match.noFridge}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

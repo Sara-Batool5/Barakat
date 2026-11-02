@@ -49,6 +49,18 @@ function OverviewBody() {
         </div>
       )}
 
+      {role === "volunteer" && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border-[1.5px] border-primary bg-white p-5">
+          <div>
+            <p className="text-[15px] font-bold tracking-[-0.01em]">{t.app.overview.jobsCta.title}</p>
+            <p className="mt-1 text-[13px] font-light text-muted-foreground">{t.app.overview.jobsCta.text}</p>
+          </div>
+          <Link to="/app/jobs" className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-dark">
+            {t.app.overview.jobsCta.button}
+          </Link>
+        </div>
+      )}
+
       <Dashboard />
 
       <div className="mt-6 rounded-[14px] border-[1.5px] border-dashed border-primary-muted bg-white p-6">

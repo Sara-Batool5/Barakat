@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import { FoodArt } from "../../components/FoodArt";
 import { SafeClock } from "../../components/SafeClock";
+import { matchBatch } from "../../data/dispatch";
 import { runSafetyCheck } from "../../data/screen";
 import rules from "../../config/safetyRules.json";
 import { listMyBatches, loadBatchEvents, type BatchEvent, type MyBatch } from "../../data/batches";
@@ -50,6 +51,20 @@ export default function MyBatches() {
     };
   }, [user?.id, user?.restaurantId, user?.mode, reload]);
 
+  // Refresh every 15 seconds so the restaurant can watch the rescue progress.
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") setReload((n) => n + 1);
+    }, 15000);
+    return () => window.clearInterval(id);
+  }, []);
+  useEffect(() => {
+    if (!user || !openId || reload === 0) return;
+    loadBatchEvents(user, openId)
+      .then((list) => setEvents((cur) => ({ ...cur, [openId]: list })))
+      .catch(() => undefined);
+  }, [reload]);
+
   if (!user) return null;
 
   const toggle = (id: string) => {
@@ -67,6 +82,7 @@ export default function MyBatches() {
     setCheckState((cur) => ({ ...cur, [id]: "running" }));
     const r = await runSafetyCheck(id);
     if (r.ok) {
+      if (r.data.outcome === "listed") await matchBatch(id);
       setCheckState((cur) => {
         const next = { ...cur };
         delete next[id];
@@ -142,6 +158,15 @@ export default function MyBatches() {
                       )}
                     </div>
                   )}
+                  {b.status === "listed" && <p className="mt-1 text-[11px] font-medium text-muted-foreground">{B.matching}</p>}
+                  {b.fridge && ["matched", "dispatched", "picked_up", "closed"].includes(b.status) && (
+                    <p className="mt-1 text-[11px] font-light text-muted-foreground">
+                      {B.toFridge} <span className="font-semibold text-foreground">{b.fridge.code}</span> {b.fridge.name}
+                    </p>
+                  )}
+                  {b.status === "matched" && <p className="mt-0.5 text-[11px] font-medium text-amber">{B.waitingVolunteer}</p>}
+                  {b.status === "dispatched" && <p className="mt-0.5 text-[11px] font-medium text-primary">{B.volunteerOnWay}</p>}
+                  {b.status === "picked_up" && <p className="mt-0.5 text-[11px] font-medium text-primary">{B.volunteerCarrying}</p>}
                   {b.safeUntil && ["listed", "matched", "dispatched", "picked_up", "escalated"].includes(b.status) && (
                     <div className="mt-2 max-w-[280px]">
                       <SafeClock safeUntil={b.safeUntil} startedAt={b.startedAt} />
