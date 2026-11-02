@@ -62,3 +62,7 @@ The server also needs two secret values in Vercel: see the main README, section 
 Run `11_safety.sql` once (after 01 to 10). It adds the minute-by-minute expiry of batches whose safe window has closed (using pg_cron, free on Supabase) and a helper for presentations:
 `select public.refresh_demo_data();` moves all sample timestamps forward so the sample batches look live again. Run it in the SQL Editor before showing the app to someone.
 If the file prints a notice about pg_cron, open **Database, then Extensions**, enable `pg_cron`, and run the file again.
+
+## Step 7: fridge matching and volunteer dispatch
+Run `12_dispatch.sql` once (after 01 to 11). It adds the room a fridge has promised to batches on their way, the deadline on each offer, a rule that a batch can have only one open offer, closes direct job editing (every step now goes through the server), improves the expiry job, and makes the demo volunteer available.
+No new keys are needed: the dispatcher uses the same `SUPABASE_SERVICE_ROLE_KEY` as before.

@@ -57,3 +57,11 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 - It updates the batch (status, tier, `safe_until`, a pickup window capped 45 minutes before the safe window ends), saves a `safety_checks` row with the reasons, and writes `safety_check` plus `safe_window_set`, `rejected` or `escalated` events. A status guard (`status = 'draft'`) makes it safe to call twice.
 - The same screening logic lives in `src/lib/safety.ts` (form preview) and `api/screen-batch.ts` (server); a parity test compares them.
 - `expire_stale_batches()` runs every minute (pg_cron) and expires real batches whose `safe_until` has passed, cancelling their open jobs.
+
+## Matching and dispatch (Step 7)
+- `POST /api/dispatch` (Vercel function) with four actions: `match` (restaurant or coordinator), `respond` and `progress` (the volunteer who owns the job, or a coordinator), and `tick` (any signed-in user; housekeeping).
+- Fridge choice: active, open at arrival (Dubai time), `capacity - stock - reserved >= portions`, within `dispatch.max_distance_km`, reachable at least 5 minutes before `safe_until`. Score = road distance + 4 x how full it is. The batch moves `listed -> matched` and the fridge's `reserved_portions` goes up.
+- Volunteer choice: `status = available`, transport capacity and radius fit, no open job, not already tried for this batch, pickup and delivery fit before `pickup_until` and `safe_until`. Signed-in volunteers come first, then the nearest. A partial unique index allows only one open job (`offered`, `accepted`, `picked_up`) per batch.
+- Offers expire after `dispatch.offer_timeout_minutes` (jobs.expires_at). After `max_offer_attempts` declined or timed-out offers the batch is `escalated` and the reservation is released.
+- Delivery: job `delivered`, batch `closed`, fridge `current_stock` up and `reserved_portions` down, a `fridge_stock_log` row, `impact_logs` (meals, kg, CO2e, ESG points), restaurant `esg_points` up, volunteer `total_deliveries` up and `available` again.
+- Sample volunteers (no `user_id`) are simulated by `tick`: they answer after 15 to 75 seconds (about 72% accept, 14% decline, 14% ignore) and travel at 15% of real time. Sample batches and jobs are never touched.
