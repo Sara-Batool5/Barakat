@@ -66,3 +66,6 @@ If the file prints a notice about pg_cron, open **Database, then Extensions**, e
 ## Step 7: fridge matching and volunteer dispatch
 Run `12_dispatch.sql` once (after 01 to 11). It adds the room a fridge has promised to batches on their way, the deadline on each offer, a rule that a batch can have only one open offer, closes direct job editing (every step now goes through the server), improves the expiry job, and makes the demo volunteer available.
 No new keys are needed: the dispatcher uses the same `SUPABASE_SERVICE_ROLE_KEY` as before.
+
+## Step 8: review queue and agent activity
+No new SQL. Step 8 uses the tables and the `12_dispatch.sql` changes from Step 7 (and the realtime setting already made in `01_schema.sql`).

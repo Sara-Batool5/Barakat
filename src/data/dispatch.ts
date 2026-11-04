@@ -55,3 +55,7 @@ export async function sendTick(): Promise<void> {
     /* housekeeping only */
   }
 }
+
+/** A coordinator settles an escalated batch: approve it for dispatch, or decline it with a reason. */
+export const reviewBatch = (batchId: string, decision: "approve" | "decline", note?: string) =>
+  post<{ status: string; match?: MatchData }>({ action: "review", batchId, decision, note: note ?? "" });

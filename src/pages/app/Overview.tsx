@@ -49,6 +49,19 @@ function OverviewBody() {
         </div>
       )}
 
+      {role === "coordinator" && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border-[1.5px] border-primary bg-white p-5">
+          <div>
+            <p className="text-[15px] font-bold tracking-[-0.01em]">{t.app.overview.reviewCta.title}</p>
+            <p className="mt-1 text-[13px] font-light text-muted-foreground">{t.app.overview.reviewCta.text}</p>
+          </div>
+          <div className="flex flex-wrap gap-2.5">
+            <Link to="/app/review" className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-dark">{t.app.overview.reviewCta.button}</Link>
+            <Link to="/app/activity" className="rounded-lg border border-border px-5 py-2.5 text-[13px] font-semibold text-foreground transition-colors hover:border-foreground">{t.app.overview.reviewCta.button2}</Link>
+          </div>
+        </div>
+      )}
+
       {role === "volunteer" && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border-[1.5px] border-primary bg-white p-5">
           <div>

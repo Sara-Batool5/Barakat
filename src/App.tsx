@@ -11,6 +11,8 @@ import ComingSoon from "./pages/app/ComingSoon";
 import NewSurplus from "./pages/app/NewSurplus";
 import MyBatches from "./pages/app/MyBatches";
 import Jobs from "./pages/app/Jobs";
+import ReviewQueue from "./pages/app/ReviewQueue";
+import Activity from "./pages/app/Activity";
 
 function FullPageMessage() {
   const { t } = useLang();
@@ -71,7 +73,8 @@ export default function App() {
           <Route path="new" element={<RoleOnly roles={["restaurant"]}><NewSurplus /></RoleOnly>} />
           <Route path="batches" element={<RoleOnly roles={["restaurant"]}><MyBatches /></RoleOnly>} />
           <Route path="jobs" element={<RoleOnly roles={["volunteer"]}><Jobs /></RoleOnly>} />
-          <Route path="review" element={<RoleOnly roles={["coordinator"]}><ComingSoon page="review" /></RoleOnly>} />
+          <Route path="review" element={<RoleOnly roles={["coordinator"]}><ReviewQueue /></RoleOnly>} />
+          <Route path="activity" element={<RoleOnly roles={["coordinator"]}><Activity /></RoleOnly>} />
           <Route path="map" element={<RoleOnly roles={["volunteer", "coordinator", "fridge_host"]}><ComingSoon page="map" /></RoleOnly>} />
           <Route path="impact" element={<RoleOnly roles={["restaurant", "coordinator"]}><ComingSoon page="impact" /></RoleOnly>} />
           <Route path="fridge" element={<RoleOnly roles={["fridge_host"]}><ComingSoon page="myFridge" /></RoleOnly>} />

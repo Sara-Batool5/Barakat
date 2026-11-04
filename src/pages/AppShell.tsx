@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Camera, ClipboardList, FileText, LayoutDashboard, LogOut, MapPin, ShieldCheck, Snowflake, Truck, type LucideIcon } from "lucide-react";
+import { Activity as ActivityIcon, Camera, ClipboardList, FileText, LayoutDashboard, LogOut, MapPin, ShieldCheck, Snowflake, Truck, type LucideIcon } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { NAV, type NavKey } from "../auth/roles";
 import { sendTick } from "../data/dispatch";
@@ -14,6 +14,7 @@ const navIcons: Record<NavKey, LucideIcon> = {
   myBatches: ClipboardList,
   jobs: Truck,
   review: ShieldCheck,
+  activity: ActivityIcon,
   map: MapPin,
   impact: FileText,
   myFridge: Snowflake,
