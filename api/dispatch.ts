@@ -4,6 +4,7 @@
  *   { action: "match",    batchId }                         pick a fridge for a listed batch and offer the job to a volunteer
  *   { action: "respond",  jobId, accept: true | false }     a volunteer accepts or declines an offer
  *   { action: "progress", jobId, step: "picked_up" | "delivered" }
+ *   { action: "review",   batchId, decision: "approve" | "decline", note? }   a coordinator settles an escalated batch
  *   { action: "tick" }                                      housekeeping: expire offers, simulate demo volunteers, retry matching
  *
  * Server-only environment variable: SUPABASE_SERVICE_ROLE_KEY (plus VITE_SUPABASE_URL or SUPABASE_URL).
@@ -117,6 +118,11 @@ async function emit(ctx: Ctx, batchId: string, events: { type: string; actor: st
 async function lastEventType(ctx: Ctx, batchId: string): Promise<string | null> {
   const rows = await ctx.db.get(`agent_events?batch_id=eq.${batchId}&select=event_type,created_at&order=created_at.desc&limit=1`);
   return rows[0]?.event_type ?? null;
+}
+
+async function lastEventAt(ctx: Ctx, batchId: string, type: string): Promise<Date | null> {
+  const rows = await ctx.db.get(`agent_events?batch_id=eq.${batchId}&event_type=eq.${type}&select=created_at&order=created_at.desc&limit=1`);
+  return rows[0]?.created_at ? new Date(rows[0].created_at) : null;
 }
 
 async function adjustFridge(ctx: Ctx, fridgeId: string, apply: (f: any) => Record<string, number>): Promise<any | null> {
@@ -243,7 +249,10 @@ export async function offerNext(ctx: Ctx, batch: any, restaurant: any, fridge: a
   const jobs = await ctx.db.get(`jobs?batch_id=eq.${batch.id}&select=*`);
   if (jobs.some((j) => OPEN_JOB.includes(j.status))) return { sent: false }; // an offer or trip is already running
   const maxAttempts = ctx.rules.dispatch?.max_offer_attempts ?? 3;
-  const failed = jobs.filter((j) => j.status === "declined" || j.status === "timed_out");
+  // After a coordinator approves an escalated batch, dispatch starts a fresh round.
+  const decidedAt = await lastEventAt(ctx, batch.id, "coordinator_decision");
+  const round = decidedAt ? jobs.filter((j) => new Date(j.offered_at).getTime() > decidedAt.getTime() - 2000) : jobs;
+  const failed = round.filter((j) => j.status === "declined" || j.status === "timed_out");
   if (failed.length >= maxAttempts) {
     await escalateUnserved(ctx, batch, failed.length);
     return { sent: false, reason: "escalated" };
@@ -252,7 +261,7 @@ export async function offerNext(ctx: Ctx, batch: any, restaurant: any, fridge: a
   const volunteers = await ctx.db.get(`volunteers?status=eq.available&select=*`);
   const open = await ctx.db.get(`jobs?status=in.(${OPEN_JOB.join(",")})&select=volunteer_id`);
   const busy = new Set<string>(open.map((j) => j.volunteer_id));
-  const tried = new Set<string>(jobs.map((j) => j.volunteer_id));
+  const tried = new Set<string>(round.map((j) => j.volunteer_id));
   const ranked = rankVolunteers(batch, restaurant, fridge, volunteers, busy, tried, ctx.now);
   if (ranked.length === 0) {
     if ((await lastEventType(ctx, batch.id)) !== "no_volunteer") {
@@ -412,6 +421,46 @@ export async function advanceJob(ctx: Ctx, jobId: string, step: "picked_up" | "d
   return { ok: true, status: "delivered", batchStatus: "closed" };
 }
 
+// ---------------------------------------------------------------- coordinator review
+export type ReviewResult =
+  | { ok: true; status: string; match?: MatchResult }
+  | { ok: false; code: "not_found" | "wrong_state" | "expired" | "forbidden" };
+
+/** A coordinator settles a batch the agent escalated: approve it for dispatch, or decline it. */
+export async function reviewBatch(ctx: Ctx, batchId: string, decision: "approve" | "decline", note: string): Promise<ReviewResult> {
+  const batch = (await ctx.db.get(`batches?id=eq.${batchId}&select=*`))[0];
+  if (!batch) return { ok: false, code: "not_found" };
+  if (batch.status !== "escalated") return { ok: false, code: "wrong_state" };
+  const cleanNote = note.trim().slice(0, 300);
+
+  if (decision === "approve" && batch.safe_until && new Date(batch.safe_until).getTime() < ctx.now.getTime()) {
+    await expireBatch(ctx, batch, "The safe window closed before the food reached a fridge.");
+    return { ok: false, code: "expired" };
+  }
+
+  const approved = decision === "approve";
+  const moved = await ctx.db.patch(
+    `batches?id=eq.${batchId}&status=eq.escalated`,
+    approved ? { status: "listed", fridge_id: null, reject_reason: null } : { status: "rejected", reject_reason: cleanNote || "Declined by a coordinator." }
+  );
+  if (moved.length === 0) return { ok: false, code: "wrong_state" };
+  if (batch.fridge_id) await releaseFridge(ctx, batch);
+
+  const text = approved ? cleanNote || "Approved by a coordinator after review." : cleanNote || "Declined by a coordinator.";
+  await ctx.db.post("safety_checks", {
+    batch_id: batchId, rule_set_version: String(ctx.rules.version ?? "unknown"), tier: batch.tier ?? "amber", passed: approved,
+    confidence: batch.confidence ?? null, reasons: [{ code: approved ? "coordinator_override" : "coordinator_decline", text }], decided_by: "coordinator", is_sample: false,
+  });
+  await emit(ctx, batchId, [{
+    type: "coordinator_decision", actor: "coordinator", tone: approved ? "green" : "red",
+    title: approved ? "Coordinator approved" : "Coordinator declined", detail: text, payload: { approved },
+  }]);
+  if (!approved) return { ok: true, status: "rejected" };
+
+  const match = await matchAndDispatch(ctx, batchId);
+  return { ok: true, status: match.status, match };
+}
+
 // ---------------------------------------------------------------- housekeeping
 export type TickSummary = { timedOut: number; simulated: number; matched: number; offered: number; expired: number };
 
@@ -544,6 +593,17 @@ export default async function handler(req: Req, res: Res) {
       const isCoordinator = profile.role === "coordinator";
       if (!batch || (!isCoordinator && !(profile.role === "restaurant" && profile.restaurant_id === batch.restaurant_id))) return fail(res, 404, "not_found", "Batch not found.");
       return res.status(200).json({ ok: true, ...(await matchAndDispatch(ctx, batchId)) });
+    }
+
+    if (action === "review") {
+      if (profile.role !== "coordinator") return fail(res, 403, "forbidden", "Only a coordinator can review a batch.");
+      const batchId = String(body.batchId ?? "");
+      if (!uuid.test(batchId)) return fail(res, 400, "bad_request", "Send a valid batchId.");
+      const decision = body.decision === "approve" ? "approve" : body.decision === "decline" ? "decline" : null;
+      if (!decision) return fail(res, 400, "bad_request", "decision must be approve or decline.");
+      const result = await reviewBatch(ctx, batchId, decision, typeof body.note === "string" ? body.note : "");
+      if (!result.ok) return fail(res, result.code === "not_found" ? 404 : 409, result.code, `Could not complete this review (${result.code}).`);
+      return res.status(200).json(result);
     }
 
     if (action === "respond" || action === "progress") {

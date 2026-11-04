@@ -65,3 +65,9 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 - Offers expire after `dispatch.offer_timeout_minutes` (jobs.expires_at). After `max_offer_attempts` declined or timed-out offers the batch is `escalated` and the reservation is released.
 - Delivery: job `delivered`, batch `closed`, fridge `current_stock` up and `reserved_portions` down, a `fridge_stock_log` row, `impact_logs` (meals, kg, CO2e, ESG points), restaurant `esg_points` up, volunteer `total_deliveries` up and `available` again.
 - Sample volunteers (no `user_id`) are simulated by `tick`: they answer after 15 to 75 seconds (about 72% accept, 14% decline, 14% ignore) and travel at 15% of real time. Sample batches and jobs are never touched.
+
+## Coordinator review (Step 8)
+- `POST /api/dispatch { action: "review", batchId, decision: "approve" | "decline", note }` (coordinators only). The batch must be `escalated`.
+- Approve: `escalated -> listed` (fridge cleared), a coordinator `safety_checks` row (`decided_by = 'coordinator'`, `passed = true`), a `coordinator_decision` event, then fridge matching and dispatch run again. Offer attempts are counted from the last coordinator decision, so the new round starts fresh. If the safe window has already closed the batch expires instead.
+- Decline: `escalated -> rejected` with the coordinator's reason in `reject_reason`, a failed coordinator check and a `coordinator_decision` event.
+- Agent activity reads `agent_events` (live feed, realtime on INSERT with a polling fallback), `batches` (pipeline counts) and computes: decisions in 24 hours (actor agent or system), share of batches with no `escalated` or `coordinator_decision` event, median minutes from `photo_received` to `fridge_matched`, and open escalations.
