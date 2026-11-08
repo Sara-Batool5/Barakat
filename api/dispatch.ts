@@ -6,6 +6,7 @@
  *   { action: "progress", jobId, step: "picked_up" | "delivered" }
  *   { action: "review",   batchId, decision: "approve" | "decline", note? }   a coordinator settles an escalated batch
  *   { action: "tick" }                                      housekeeping: expire offers, simulate demo volunteers, retry matching
+ *   { action: "demo_volunteers" | "demo_set_volunteer" | "demo_fridges" | "demo_set_fridge" }   demo accounts only: choose whom to play
  *
  * Server-only environment variable: SUPABASE_SERVICE_ROLE_KEY (plus VITE_SUPABASE_URL or SUPABASE_URL).
  * Self-contained on purpose (no imports). The engine functions take a small database object so they can be tested
@@ -259,7 +260,8 @@ export async function offerNext(ctx: Ctx, batch: any, restaurant: any, fridge: a
   }
 
   const volunteers = await ctx.db.get(`volunteers?status=eq.available&select=*`);
-  const open = await ctx.db.get(`jobs?status=in.(${OPEN_JOB.join(",")})&select=volunteer_id`);
+  // Sample jobs in the seed data do not block a volunteer from receiving real offers.
+  const open = await ctx.db.get(`jobs?status=in.(${OPEN_JOB.join(",")})&is_sample=eq.false&select=volunteer_id`);
   const busy = new Set<string>(open.map((j) => j.volunteer_id));
   const tried = new Set<string>(round.map((j) => j.volunteer_id));
   const ranked = rankVolunteers(batch, restaurant, fridge, volunteers, busy, tried, ctx.now);
@@ -271,7 +273,9 @@ export async function offerNext(ctx: Ctx, batch: any, restaurant: any, fridge: a
   }
 
   const pick = ranked[0];
-  const timeout = ctx.rules.dispatch?.offer_timeout_minutes ?? 6;
+  const robotMinutes = ctx.rules.dispatch?.offer_timeout_minutes ?? 6;
+  // A person has to switch windows and read the offer; demo volunteers answer by themselves.
+  const timeout = pick.volunteer.user_id ? ctx.rules.dispatch?.human_offer_timeout_minutes ?? robotMinutes : robotMinutes;
   const fridgeKm = roadKm(restaurant.lat, restaurant.lng, fridge.lat, fridge.lng);
   let job: any;
   try {
@@ -359,7 +363,7 @@ async function timeoutOffer(ctx: Ctx, job: any) {
   const moved = await ctx.db.patch(`jobs?id=eq.${job.id}&status=eq.offered`, { status: "timed_out" });
   if (moved.length === 0) return;
   const vol = (await ctx.db.get(`volunteers?id=eq.${job.volunteer_id}&select=full_name`))[0];
-  const minutes = ctx.rules.dispatch?.offer_timeout_minutes ?? 6;
+  const minutes = job.expires_at && job.offered_at ? Math.round((new Date(job.expires_at).getTime() - new Date(job.offered_at).getTime()) / 60000) : ctx.rules.dispatch?.offer_timeout_minutes ?? 6;
   await emit(ctx, job.batch_id, [{ type: "offer_timed_out", actor: "system", tone: "amber", title: "Offer timed out", detail: `No reply from ${vol?.full_name ?? "the volunteer"} after ${minutes} min`, jobId: job.id }]);
   await redispatch(ctx, job.batch_id);
 }
@@ -531,6 +535,56 @@ export async function tick(ctx: Ctx): Promise<TickSummary> {
   return summary;
 }
 
+// ---------------------------------------------------------------- demo accounts: choose whom to play
+export const DEMO_VOLUNTEER_EMAIL = "volunteer.demo@barakat.test";
+export const DEMO_HOST_EMAIL = "host.demo@barakat.test";
+
+export type DemoVolunteer = { id: string; name: string; area: string; transport: string; status: string; hasOffer: boolean; onTrip: boolean; current: boolean };
+
+/** Sample volunteers, with the ones holding an open offer first, so the demo can play whoever got the job. */
+export async function demoVolunteers(ctx: Ctx, currentId: string | null): Promise<DemoVolunteer[]> {
+  const vols = await ctx.db.get(`volunteers?is_sample=eq.true&select=id,full_name,area,transport,status`);
+  const open = await ctx.db.get(`jobs?status=in.(${OPEN_JOB.join(",")})&is_sample=eq.false&select=volunteer_id,status`);
+  const offered = new Set<string>(open.filter((j) => j.status === "offered").map((j) => j.volunteer_id));
+  const onTrip = new Set<string>(open.filter((j) => j.status !== "offered").map((j) => j.volunteer_id));
+  return vols
+    .map((v) => ({ id: v.id, name: v.full_name, area: v.area, transport: v.transport, status: v.status, hasOffer: offered.has(v.id), onTrip: onTrip.has(v.id), current: v.id === currentId }))
+    .sort((a, b) => Number(b.hasOffer) - Number(a.hasOffer) || Number(b.onTrip) - Number(a.onTrip) || a.name.localeCompare(b.name));
+}
+
+export async function switchDemoVolunteer(ctx: Ctx, userId: string, currentId: string | null, targetId: string): Promise<{ ok: true } | { ok: false; code: "not_found" | "forbidden" }> {
+  const target = (await ctx.db.get(`volunteers?id=eq.${targetId}&select=id,is_sample,status,user_id`))[0];
+  if (!target || !target.is_sample) return { ok: false, code: "not_found" };
+  if (target.user_id && target.user_id !== userId) return { ok: false, code: "forbidden" };
+  // The volunteer we leave goes back to the simulation, so nobody is left waiting for a human.
+  if (currentId && currentId !== targetId) await ctx.db.patch(`volunteers?id=eq.${currentId}&user_id=eq.${userId}`, { user_id: null });
+  const trips = await ctx.db.get(`jobs?volunteer_id=eq.${targetId}&status=in.(accepted,picked_up)&is_sample=eq.false&select=id`);
+  const change: Record<string, unknown> = { user_id: userId };
+  if (target.status !== "available" && trips.length === 0) change.status = "available";
+  await ctx.db.patch(`volunteers?id=eq.${targetId}`, change);
+  await ctx.db.patch(`profiles?id=eq.${userId}`, { volunteer_id: targetId });
+  return { ok: true };
+}
+
+export type DemoFridge = { id: string; code: string; name: string; area: string; stock: number; capacity: number; incoming: number; current: boolean };
+
+export async function demoFridges(ctx: Ctx, currentId: string | null): Promise<DemoFridge[]> {
+  const fridges = await ctx.db.get(`fridges?is_sample=eq.true&select=id,code,name,area,current_stock,capacity_portions`);
+  const live = await ctx.db.get(`batches?status=in.(matched,dispatched,picked_up)&is_sample=eq.false&select=fridge_id`);
+  const counts = new Map<string, number>();
+  for (const b of live) if (b.fridge_id) counts.set(b.fridge_id, (counts.get(b.fridge_id) ?? 0) + 1);
+  return fridges
+    .map((f) => ({ id: f.id, code: f.code, name: f.name, area: f.area, stock: f.current_stock, capacity: f.capacity_portions, incoming: counts.get(f.id) ?? 0, current: f.id === currentId }))
+    .sort((a, b) => b.incoming - a.incoming || String(a.code).localeCompare(String(b.code)));
+}
+
+export async function switchDemoFridge(ctx: Ctx, userId: string, targetId: string): Promise<{ ok: true } | { ok: false; code: "not_found" }> {
+  const f = (await ctx.db.get(`fridges?id=eq.${targetId}&select=id,is_sample`))[0];
+  if (!f || !f.is_sample) return { ok: false, code: "not_found" };
+  await ctx.db.patch(`profiles?id=eq.${userId}`, { fridge_id: targetId });
+  return { ok: true };
+}
+
 // ---------------------------------------------------------------- HTTP handler
 function fail(res: Res, status: number, code: string, message: string) {
   res.status(status).json({ ok: false, code, message });
@@ -551,16 +605,21 @@ export default async function handler(req: Req, res: Res) {
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
   if (!token) return fail(res, 401, "unauthorized", "Please sign in.");
   let userId = "";
+  let userEmail = "";
   try {
     const u = await fetch(`${url}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: `Bearer ${token}` } });
     if (!u.ok) return fail(res, 401, "unauthorized", "Your session is not valid. Please sign in again.");
-    userId = String(((await u.json()) as { id?: string }).id ?? "");
+    const who = (await u.json()) as { id?: string; email?: string };
+    userId = String(who.id ?? "");
+    userEmail = String(who.email ?? "").toLowerCase();
   } catch {
     return fail(res, 502, "upstream", "Could not reach the database.");
   }
   if (!userId) return fail(res, 401, "unauthorized", "Please sign in.");
 
   const db = httpDb(url, serviceKey);
+  // Every success answer carries the server clock, so the app can correct for a wrong clock on the visitor's device.
+  const reply = (payload: Record<string, unknown>) => res.status(200).json({ ...payload, serverNow: new Date().toISOString() });
   let body: Record<string, unknown> = {};
   try {
     body = (typeof req.body === "string" ? JSON.parse(req.body) : (req.body as Record<string, unknown>)) ?? {};
@@ -571,7 +630,7 @@ export default async function handler(req: Req, res: Res) {
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
   try {
-    const profile = (await db.get(`profiles?id=eq.${encodeURIComponent(userId)}&select=role,restaurant_id,volunteer_id`))[0];
+    const profile = (await db.get(`profiles?id=eq.${encodeURIComponent(userId)}&select=role,restaurant_id,volunteer_id,fridge_id`))[0];
     if (!profile) return fail(res, 403, "forbidden", "No profile for this account.");
 
     const configs = await db.get(`app_config?key=in.(safety_rules,impact_factors)&select=key,value`);
@@ -581,9 +640,9 @@ export default async function handler(req: Req, res: Res) {
     const ctx: Ctx = { db, rules, factors, now: new Date() };
 
     if (action === "tick") {
-      if (Date.now() - lastTickAt < 8000) return res.status(200).json({ ok: true, skipped: true });
+      if (Date.now() - lastTickAt < 8000) return reply({ ok: true, skipped: true });
       lastTickAt = Date.now();
-      return res.status(200).json({ ok: true, summary: await tick(ctx) });
+      return reply({ ok: true, summary: await tick(ctx) });
     }
 
     if (action === "match") {
@@ -592,7 +651,25 @@ export default async function handler(req: Req, res: Res) {
       const batch = (await db.get(`batches?id=eq.${batchId}&select=id,restaurant_id`))[0];
       const isCoordinator = profile.role === "coordinator";
       if (!batch || (!isCoordinator && !(profile.role === "restaurant" && profile.restaurant_id === batch.restaurant_id))) return fail(res, 404, "not_found", "Batch not found.");
-      return res.status(200).json({ ok: true, ...(await matchAndDispatch(ctx, batchId)) });
+      return reply({ ok: true, ...(await matchAndDispatch(ctx, batchId)) });
+    }
+
+    if (action === "demo_volunteers" || action === "demo_set_volunteer") {
+      if (userEmail !== DEMO_VOLUNTEER_EMAIL) return fail(res, 403, "forbidden", "Only the demo volunteer account can choose a volunteer.");
+      if (action === "demo_volunteers") return reply({ ok: true, volunteers: await demoVolunteers(ctx, profile.volunteer_id ?? null) });
+      const targetId = String(body.volunteerId ?? "");
+      if (!uuid.test(targetId)) return fail(res, 400, "bad_request", "Send a valid volunteerId.");
+      const r = await switchDemoVolunteer(ctx, userId, profile.volunteer_id ?? null, targetId);
+      return r.ok ? reply({ ok: true }) : fail(res, r.code === "not_found" ? 404 : 403, r.code, "That volunteer cannot be chosen.");
+    }
+
+    if (action === "demo_fridges" || action === "demo_set_fridge") {
+      if (userEmail !== DEMO_HOST_EMAIL) return fail(res, 403, "forbidden", "Only the demo fridge host account can choose a fridge.");
+      if (action === "demo_fridges") return reply({ ok: true, fridges: await demoFridges(ctx, profile.fridge_id ?? null) });
+      const targetId = String(body.fridgeId ?? "");
+      if (!uuid.test(targetId)) return fail(res, 400, "bad_request", "Send a valid fridgeId.");
+      const r = await switchDemoFridge(ctx, userId, targetId);
+      return r.ok ? reply({ ok: true }) : fail(res, 404, r.code, "That fridge cannot be chosen.");
     }
 
     if (action === "review") {
@@ -603,7 +680,7 @@ export default async function handler(req: Req, res: Res) {
       if (!decision) return fail(res, 400, "bad_request", "decision must be approve or decline.");
       const result = await reviewBatch(ctx, batchId, decision, typeof body.note === "string" ? body.note : "");
       if (!result.ok) return fail(res, result.code === "not_found" ? 404 : 409, result.code, `Could not complete this review (${result.code}).`);
-      return res.status(200).json(result);
+      return reply({ ...result });
     }
 
     if (action === "respond" || action === "progress") {
@@ -619,7 +696,7 @@ export default async function handler(req: Req, res: Res) {
         result = await advanceJob(ctx, jobId, step, actor);
       }
       if (!result.ok) return fail(res, result.code === "not_found" ? 404 : result.code === "forbidden" ? 403 : 409, result.code, `Could not complete this step (${result.code}).`);
-      return res.status(200).json(result);
+      return reply({ ...result });
     }
 
     return fail(res, 400, "bad_request", "Unknown action.");

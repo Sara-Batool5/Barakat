@@ -69,3 +69,6 @@ No new keys are needed: the dispatcher uses the same `SUPABASE_SERVICE_ROLE_KEY`
 
 ## Step 8: review queue and agent activity
 No new SQL. Step 8 uses the tables and the `12_dispatch.sql` changes from Step 7 (and the realtime setting already made in `01_schema.sql`).
+
+## Step 8 fixes (demo smoothing)
+Run `13_demo_fixes.sql` once (after 01 to 12). It adds the "Sealed chilled packs" category and a 15 minute answer time for signed-in volunteers (in the rules), the "ask a coordinator to check" option for restaurants, photo access for volunteers and fridge hosts on batches they can see, restaurant names for fridge hosts, and makes the demo volunteer available. The seed files were regenerated with the updated rules; you do not need to run them again.

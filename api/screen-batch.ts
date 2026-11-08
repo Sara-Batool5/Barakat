@@ -4,7 +4,7 @@
  * applies the rules stored in app_config (safetyRules.json), and decides:
  *   listed    green or amber, safe window started, ready for matching
  *   rejected  red tier, missing required details, or too little safe time left
- *   escalated the photo reading was not confident enough, so a coordinator must look
+ *   escalated the photo reading was not confident enough, or the restaurant asked for a check, so a coordinator must look
  * Every decision is saved with its reasons (safety_checks) and written to the batch's activity timeline.
  *
  * Server-only environment variables: SUPABASE_SERVICE_ROLE_KEY, plus VITE_SUPABASE_URL (or SUPABASE_URL).
@@ -42,6 +42,7 @@ const REASON_TEXT: Record<string, string> = {
   unknown_category: "At least one item has a category the rules do not know.",
   missing_info: "Required details are missing: {fields}.",
   low_confidence: "The photo reading was only {percent}% confident, so a coordinator will check it.",
+  review_requested: "The restaurant asked a coordinator to check this batch before it is listed.",
 };
 
 export function reasonText(r: Reason): string {
@@ -120,7 +121,7 @@ export type Decision = {
 };
 
 /** The gate's decision: the screening plus the "is it good enough to list?" rules. */
-export function decide(input: ScreenInput & { confidence: number | null }, rules: any): Decision {
+export function decide(input: ScreenInput & { confidence: number | null; reviewRequested?: boolean }, rules: any): Decision {
   const s = screenBatch(input, rules);
   if (s.tier === "red") {
     return { outcome: "rejected", tier: "red", reasons: s.reasons, safeUntil: null, safeMinutes: s.safeMinutes, rejectReason: reasonText(s.reasons[0] ?? { code: "unknown_category" }) };
@@ -129,6 +130,10 @@ export function decide(input: ScreenInput & { confidence: number | null }, rules
     const fields = s.missing.map((m) => (m === "prepared_at" ? "preparation time" : m === "stored_temp_c" ? "storage temperature" : "items")).join(" and ");
     const r: Reason = { code: "missing_info", params: { fields } };
     return { outcome: "rejected", tier: s.tier, reasons: [r, ...s.reasons], safeUntil: null, safeMinutes: s.safeMinutes, rejectReason: reasonText(r) };
+  }
+  if (input.reviewRequested) {
+    const r: Reason = { code: "review_requested" };
+    return { outcome: "escalated", tier: s.tier, reasons: [r, ...s.reasons], safeUntil: s.safeUntil, safeMinutes: s.safeMinutes, rejectReason: null };
   }
   const autoMin = rules.confidence?.auto_list_min ?? 0.75;
   if (input.confidence !== null && input.confidence < autoMin) {
@@ -201,7 +206,7 @@ export default async function handler(req: Req, res: Res) {
   let batch: any;
   try {
     const b = await fetch(
-      `${url}/rest/v1/batches?id=eq.${batchId}&select=id,restaurant_id,status,tier,submitted_at,prepared_at,stored_temp_c,confidence,pickup_until,safe_until,reject_reason,batch_items(category)`,
+      `${url}/rest/v1/batches?id=eq.${batchId}&select=*,batch_items(category)`,
       { headers: sbHeaders(serviceKey) }
     );
     const rows = (await b.json()) as any[];
@@ -240,6 +245,7 @@ export default async function handler(req: Req, res: Res) {
       preparedMinutesAgo: prepared,
       storedTempC: batch.stored_temp_c === null || batch.stored_temp_c === undefined ? null : Number(batch.stored_temp_c),
       confidence: batch.confidence === null || batch.confidence === undefined ? null : Number(batch.confidence),
+      reviewRequested: batch.review_requested === true,
       now,
     },
     rules

@@ -71,3 +71,10 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 - Approve: `escalated -> listed` (fridge cleared), a coordinator `safety_checks` row (`decided_by = 'coordinator'`, `passed = true`), a `coordinator_decision` event, then fridge matching and dispatch run again. Offer attempts are counted from the last coordinator decision, so the new round starts fresh. If the safe window has already closed the batch expires instead.
 - Decline: `escalated -> rejected` with the coordinator's reason in `reject_reason`, a failed coordinator check and a `coordinator_decision` event.
 - Agent activity reads `agent_events` (live feed, realtime on INSERT with a polling fallback), `batches` (pipeline counts) and computes: decisions in 24 hours (actor agent or system), share of batches with no `escalated` or `coordinator_decision` event, median minutes from `photo_received` to `fridge_matched`, and open escalations.
+
+## Demo fixes (version 0.8.1)
+- Dispatch ignores `is_sample` jobs when deciding who is busy. Signed-in volunteers (a `user_id` on the volunteer record) have `dispatch.human_offer_timeout_minutes` (15) to answer; demo volunteers use `offer_timeout_minutes` (6).
+- Demo-only actions in `/api/dispatch` (allowed only for `volunteer.demo@barakat.test` and `host.demo@barakat.test`): `demo_volunteers`, `demo_set_volunteer` (moves the sign-in to another sample volunteer, returns the old one to the simulation), `demo_fridges`, `demo_set_fridge`.
+- Every success answer from `/api/dispatch` carries `serverNow`; the app stores the offset and uses it for countdowns.
+- New category `packaged_chilled` (amber, chilled, 24 hours, no preparation time) and `batches.review_requested` (the gate escalates such batches with reason `review_requested`).
+- Storage: a photo can be read by its owner, by coordinators, and by anyone who can see the batch it belongs to (`can_see_batch`).

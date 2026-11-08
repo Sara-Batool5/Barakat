@@ -22,7 +22,7 @@ type Res = { status(code: number): Res; json(body: unknown): void; setHeader(nam
 
 export const CATEGORIES = [
   "packaged_sealed", "beverages_sealed", "produce_whole", "bakery_ambient", "cooked_chilled",
-  "sandwiches_salads", "dairy_desserts", "raw_meat_fish", "plate_leftovers", "unlabelled_unknown",
+  "sandwiches_salads", "dairy_desserts", "packaged_chilled", "raw_meat_fish", "plate_leftovers", "unlabelled_unknown",
 ] as const;
 export const ALLERGENS = ["gluten", "milk", "eggs", "nuts", "peanuts", "sesame", "soy", "fish", "shellfish"] as const;
 
@@ -47,7 +47,8 @@ Rules
   bakery_ambient = bread, pastries and cakes baked and kept at room temperature
   cooked_chilled = cooked meals in trays or boxes
   sandwiches_salads = sandwiches, wraps, salads, cut fruit
-  dairy_desserts = puddings, yoghurt, cheesecake, cream desserts
+  dairy_desserts = puddings, yoghurt, cheesecake, cream desserts made or served by the restaurant
+  packaged_chilled = factory-sealed chilled packs with a printed expiry date (yoghurt pots, packaged sandwiches, salad bowls, dairy drinks)
   raw_meat_fish = any raw meat or fish
   plate_leftovers = food that has been served, or is on used plates
   unlabelled_unknown = you cannot tell what it is, or whether it is safe
