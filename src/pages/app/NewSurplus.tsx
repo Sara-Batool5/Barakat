@@ -11,7 +11,7 @@ import { analyzePhoto, type VisionResult } from "../../data/vision";
 import { useLang } from "../../i18n/LanguageContext";
 import { fill, fmtDubaiTime, fmtMinutes } from "../../lib/format";
 import { compressImage } from "../../lib/image";
-import { categoryStorage, categoryTier, screenBatch, type Tier } from "../../lib/safety";
+import { NEEDS_PREP, categoryStorage, categoryTier, screenBatch, type Tier } from "../../lib/safety";
 
 type Row = { key: number; name: string; category: string; portions: string; allergens: string[] };
 const ALLERGENS = ["gluten", "milk", "eggs", "nuts", "peanuts", "sesame", "soy", "fish", "shellfish"];
@@ -44,6 +44,9 @@ export default function NewSurplus() {
   const [pickup, setPickup] = useState("120");
   const [notes, setNotes] = useState("");
   const [attested, setAttested] = useState(false);
+  const [requestReview, setRequestReview] = useState(false);
+  const [triedSubmit, setTriedSubmit] = useState(false);
+  const errorsRef = useRef<HTMLUListElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [done, setDone] = useState(false);
@@ -60,6 +63,7 @@ export default function NewSurplus() {
 
   useEffect(() => () => { if (photoUrl) URL.revokeObjectURL(photoUrl); }, [photoUrl]);
 
+  const needsPrep = items.some((i) => NEEDS_PREP.has(i.category));
   const hasChilled = items.some((i) => i.category && categoryStorage(i.category) === "chilled" && categoryTier(i.category) !== "red");
   const screening = useMemo(
     () =>
@@ -143,6 +147,7 @@ export default function NewSurplus() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setTriedSubmit(true);
     const problems: string[] = [];
     if (!photo) problems.push(S.photoRequired);
     const cleaned = items.map((i) => ({ name: i.name.trim(), category: i.category, portions: Math.round(Number(i.portions)), allergens: i.allergens }));
@@ -152,7 +157,10 @@ export default function NewSurplus() {
     if (!attested) problems.push(S.attestRequired);
     const unique = Array.from(new Set(problems));
     setErrors(unique);
-    if (unique.length > 0) return;
+    if (unique.length > 0) {
+      window.setTimeout(() => errorsRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }), 60);
+      return;
+    }
 
     setBusy(true);
     try {
@@ -165,6 +173,7 @@ export default function NewSurplus() {
         pickupMinutes: Number(pickup),
         notes: notes.trim(),
         analysisId: analysis.status === "done" ? analysis.id ?? null : null,
+        requestReview,
       });
       setCreatedId(created.id);
       setDone(true);
@@ -188,6 +197,8 @@ export default function NewSurplus() {
     setPickup("120");
     setNotes("");
     setAttested(false);
+    setRequestReview(false);
+    setTriedSubmit(false);
     setErrors([]);
     setDone(false);
     setCreatedId(null);
@@ -463,13 +474,20 @@ export default function NewSurplus() {
             <h2 className={h2}>{S.handlingTitle}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="prepared" className={labelClass}>{S.prepared}</label>
-                <select id="prepared" className={inputClass} value={prepared} onChange={(e) => setPrepared(e.target.value)}>
-                  <option value="">{S.notApplicable}</option>
+                <label htmlFor="prepared" className={labelClass}>{S.prepared}{needsPrep && <span className="text-danger"> *</span>}</label>
+                <select
+                  id="prepared"
+                  className={`${inputClass} ${triedSubmit && needsPrep && prepared === "" ? "border-danger" : ""}`}
+                  aria-invalid={triedSubmit && needsPrep && prepared === ""}
+                  value={prepared}
+                  onChange={(e) => setPrepared(e.target.value)}
+                >
+                  <option value="">{needsPrep ? S.chooseOne : S.notNeeded}</option>
                   {Object.keys(S.preparedOptions).map((m) => (
                     <option key={m} value={m}>{S.preparedOptions[m]}</option>
                   ))}
                 </select>
+                {needsPrep && <p className="mt-1 text-[11px] font-light leading-[1.6] text-muted-foreground">{S.preparedHint}</p>}
               </div>
               {hasChilled && (
                 <div>
@@ -529,13 +547,23 @@ export default function NewSurplus() {
             <p className="mt-4 border-t border-border pt-3 text-[11px] font-light leading-[1.6] text-muted-foreground">{S.previewNote}</p>
           </div>
 
+          {user.mode === "supabase" && (
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-white p-4 text-[12px] font-light leading-[1.6] text-foreground">
+              <input type="checkbox" checked={requestReview} onChange={(e) => setRequestReview(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[hsl(140_55%_38%)]" />
+              <span>
+                <span className="block font-medium">{S.requestReview}</span>
+                <span className="block text-muted-foreground">{S.requestReviewHelp}</span>
+              </span>
+            </label>
+          )}
+
           <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-white p-4 text-[12px] font-light leading-[1.6] text-foreground">
             <input type="checkbox" checked={attested} onChange={(e) => setAttested(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[hsl(140_55%_38%)]" />
             <span>{S.attest}</span>
           </label>
 
           {errors.length > 0 && (
-            <ul role="alert" className="mt-4 flex flex-col gap-1.5 rounded-lg bg-danger-light px-4 py-3 text-[12px] text-danger">
+            <ul ref={errorsRef} role="alert" className="mt-4 flex flex-col gap-1.5 rounded-lg bg-danger-light px-4 py-3 text-[12px] text-danger">
               {errors.map((er) => (
                 <li key={er}>{er}</li>
               ))}

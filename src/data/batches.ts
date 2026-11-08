@@ -18,6 +18,8 @@ export type NewBatchInput = {
   notes: string;
   /** id of the photo analysis the form was filled from, if any */
   analysisId?: string | null;
+  /** the restaurant asks a coordinator to check the batch before it is listed */
+  requestReview?: boolean;
 };
 
 export type MyBatch = {
@@ -209,6 +211,8 @@ export async function createBatch(user: User, input: NewBatchInput): Promise<{ i
     p_photo_path: photoPath,
     p_items: input.items,
     p_analysis_id: input.analysisId ?? null,
+    // Only sent when asked for, so submitting still works before supabase/13_demo_fixes.sql has been run.
+    ...(input.requestReview ? { p_review_requested: true } : {}),
   });
   if (error) {
     if (photoPath) await sb.storage.from(BUCKET).remove([photoPath]);

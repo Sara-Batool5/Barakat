@@ -1,3 +1,4 @@
+import { setServerNow } from "../lib/serverTime";
 import { supabase } from "../lib/supabase";
 
 export type DispatchFail =
@@ -11,9 +12,9 @@ export type MatchData = {
   offer?: { sent: boolean; reason?: "no_volunteer" | "escalated" };
 };
 
-type Reply<T> = { ok: true; data: T } | { ok: false; code: DispatchFail };
+export type Reply<T> = { ok: true; data: T } | { ok: false; code: DispatchFail };
 
-async function post<T>(body: Record<string, unknown>): Promise<Reply<T>> {
+export async function post<T>(body: Record<string, unknown>): Promise<Reply<T>> {
   if (!supabase) return { ok: false, code: "local" };
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -31,6 +32,7 @@ async function post<T>(body: Record<string, unknown>): Promise<Reply<T>> {
   } catch {
     json = null;
   }
+  setServerNow((json as { serverNow?: unknown } | null)?.serverNow);
   if (res.ok && json?.ok) return { ok: true, data: json as unknown as T };
   if (!json && res.status >= 400 && res.status < 500) return { ok: false, code: "unavailable" };
   const known: DispatchFail[] = ["not_configured", "unauthorized", "forbidden", "not_found", "wrong_state", "expired", "setup", "upstream"];

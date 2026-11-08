@@ -1,11 +1,12 @@
 import type { Lang } from "../i18n/translations";
+import { nowMs } from "./serverTime";
 
 const nf = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
 export const fmtNumber = (n: number) => nf.format(n);
 
 /** "5 minutes ago", "in 2 hours" ... with Western digits in both languages. */
 export function timeAgo(iso: string, lang: Lang): string {
-  const diffMin = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+  const diffMin = Math.round((new Date(iso).getTime() - nowMs()) / 60000);
   const rtf = new Intl.RelativeTimeFormat(lang === "ar" ? "ar-u-nu-latn" : "en", { numeric: "auto" });
   const abs = Math.abs(diffMin);
   if (abs < 60) return rtf.format(diffMin, "minute");

@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import { useLang } from "../../i18n/LanguageContext";
+import { DemoFridgePicker, DemoVolunteerPicker } from "../../components/DemoPickers";
+import { IncomingDeliveries } from "../../components/IncomingDeliveries";
 import { Dashboard } from "../Dashboard";
 import { useLinkedRecord } from "./useLinkedRecord";
 
@@ -29,6 +31,9 @@ function OverviewBody() {
         {t.app.overview.roleBlurb[role]}
       </p>
 
+      {role === "volunteer" && <DemoVolunteerPicker />}
+      {role === "fridge_host" && <DemoFridgePicker />}
+
       {linked && (
         <div className="mt-6 rounded-[14px] border-[1.5px] border-primary-muted bg-primary-light/60 p-5">
           <p className="font-mono-label text-[10px] uppercase tracking-[0.12em] text-primary">{linked.label}</p>
@@ -48,6 +53,8 @@ function OverviewBody() {
           </Link>
         </div>
       )}
+
+      {role === "fridge_host" && <IncomingDeliveries />}
 
       {role === "coordinator" && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border-[1.5px] border-primary bg-white p-5">

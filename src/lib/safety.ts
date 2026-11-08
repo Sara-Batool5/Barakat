@@ -29,7 +29,7 @@ type Rules = typeof rulesJson;
 const SEVERITY: Record<Tier, number> = { green: 0, amber: 1, red: 2 };
 /** Categories whose clock starts at preparation time rather than at listing time. */
 const PREP_CLOCK = new Set(["cooked_chilled", "sandwiches_salads", "dairy_desserts", "bakery_ambient"]);
-const NEEDS_PREP = new Set(["cooked_chilled", "sandwiches_salads", "dairy_desserts"]);
+export const NEEDS_PREP = new Set(["cooked_chilled", "sandwiches_salads", "dairy_desserts"]);
 
 export function categoryTier(category: string, rules: Rules = rulesJson): Tier {
   return ((rules.categories as Record<string, { tier: Tier }>)[category]?.tier ?? "red") as Tier;

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Check, MapPin, Store } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { DemoVolunteerPicker } from "../../components/DemoPickers";
 import { FoodArt } from "../../components/FoodArt";
 import { SafeClock } from "../../components/SafeClock";
 import rules from "../../config/safetyRules.json";
@@ -149,6 +150,7 @@ export default function Jobs() {
     <>
       <h1 className="text-[28px] font-extrabold tracking-[-0.04em]">{J.title}</h1>
       <p className="mt-2 max-w-[600px] text-[14px] font-light leading-[1.8] text-muted-foreground">{J.sub}</p>
+      <DemoVolunteerPicker onChanged={() => void load()} />
       {user.mode === "local" && <p className="mt-5 rounded-lg bg-amber-light px-4 py-3 text-[13px] text-amber">{J.errors.local}</p>}
       {error && <p role="alert" className="mt-5 text-[13px] text-danger">{J.loadError}</p>}
       {message && <p role="alert" className="mt-5 rounded-lg bg-danger-light px-4 py-3 text-[13px] text-danger">{message}</p>}
@@ -178,7 +180,7 @@ export default function Jobs() {
               <span className="flex items-center gap-3">
                 <span className={`inline-flex items-center gap-1 font-medium ${statusTone[j.status] ?? "text-foreground"}`}>
                   {j.status === "delivered" && <Check size={12} strokeWidth={3} aria-hidden="true" />}
-                  {J.statuses[j.status] ?? j.status}
+                  {j.status === "offered" ? J.statuses.timed_out : J.statuses[j.status] ?? j.status}
                 </span>
                 <span className="text-muted-foreground">{timeAgo(j.offeredAt, lang)}</span>
               </span>

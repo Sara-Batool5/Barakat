@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { nowMs } from "../lib/serverTime";
 import { loadDashboard } from "./api";
 import type { DashboardData } from "./types";
 
@@ -32,10 +33,10 @@ export function useDashboard(): State {
 
 /** Ticks every second and returns the milliseconds left until the target time, or null when there is no target. */
 export function useCountdown(target: string | null): number | null {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(() => nowMs());
   useEffect(() => {
     if (!target) return;
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    const id = window.setInterval(() => setNow(nowMs()), 1000);
     return () => window.clearInterval(id);
   }, [target]);
   if (!target) return null;

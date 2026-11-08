@@ -30,7 +30,7 @@ const BY_NAME: Record<string, string> = {
 
 /** When the name is not one of the samples (for example a new item typed by a restaurant), pick by category. */
 const BY_CATEGORY: Record<string, string> = {
-  cooked_chilled: "rice_biryani", sandwiches_salads: "greek_salad", bakery_ambient: "bread_rolls", dairy_desserts: "rice_pudding",
+  cooked_chilled: "rice_biryani", sandwiches_salads: "greek_salad", bakery_ambient: "bread_rolls", dairy_desserts: "rice_pudding", packaged_chilled: "yoghurt_cups",
   packaged_sealed: "snack_boxes", produce_whole: "oranges", beverages_sealed: "water_bottles", raw_meat_fish: "raw_chicken",
   plate_leftovers: "plate_leftovers", unlabelled_unknown: "unlabelled",
 };
