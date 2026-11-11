@@ -106,3 +106,32 @@
 html[lang="ar"] .font-mono-label {
   font-family: "Cairo", "JetBrains Mono", sans-serif;
 }
+
+/* Live map markers */
+.bk-pin-wrap { background: transparent; border: 0; }
+.bk-pin {
+  display: grid;
+  place-items: center;
+  border: 2px solid #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+.bk-pin.sq { border-radius: 8px; }
+.bk-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.leaflet-popup-content { font-family: "Sora", "Cairo", system-ui, sans-serif; font-size: 12px; line-height: 1.6; }
+
+/* Printing: only the impact report prints, as an A4 page */
+@page { size: A4; margin: 14mm; }
+@media print {
+  body * { visibility: hidden; }
+  #report-sheet, #report-sheet * { visibility: visible; }
+  #report-sheet { position: absolute; left: 0; top: 0; width: 100%; }
+  .no-print { display: none !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

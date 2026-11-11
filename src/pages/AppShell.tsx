@@ -53,7 +53,7 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-screen bg-surface">
-      <aside className="hidden w-64 shrink-0 flex-col self-start overflow-y-auto border-e border-border bg-white p-5 lg:sticky lg:top-0 lg:flex lg:h-screen">
+      <aside className="no-print hidden w-64 shrink-0 flex-col self-start overflow-y-auto border-e border-border bg-white p-5 lg:sticky lg:top-0 lg:flex lg:h-screen">
         <Link to="/" aria-label={t.brand.name}>
           <Logo />
         </Link>
@@ -79,7 +79,7 @@ export default function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-border bg-white">
+        <header className="no-print border-b border-border bg-white">
           <div className="flex items-center justify-between gap-3 px-5 py-3.5 md:px-8">
             <div className="lg:hidden">
               <Logo />

@@ -20,10 +20,10 @@ export type MyJob = {
     portions: number;
     safeUntil: string | null;
     notes: string | null;
-    restaurant: { name: string; area: string } | null;
+    restaurant: { name: string; area: string; lat: number; lng: number } | null;
     items: { name: string; category: string; portions: number }[];
   } | null;
-  fridge: { code: string; name: string; area: string } | null;
+  fridge: { code: string; name: string; area: string; lat: number; lng: number } | null;
 };
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
@@ -35,8 +35,8 @@ export async function listMyJobs(user: User): Promise<MyJob[]> {
     .from("jobs")
     .select(
       "id,status,attempt,offered_at,expires_at,responded_at,picked_up_at,delivered_at,distance_km,pickup_eta_min," +
-        "batches(id,status,tier,est_portions,safe_until,notes,restaurants(name,area),batch_items(name,category,portions))," +
-        "fridges(code,name,area)"
+        "batches(id,status,tier,est_portions,safe_until,notes,restaurants(name,area,lat,lng),batch_items(name,category,portions))," +
+        "fridges(code,name,area,lat,lng)"
     )
     .eq("volunteer_id", user.volunteerId)
     .order("offered_at", { ascending: false })
@@ -66,11 +66,11 @@ export async function listMyJobs(user: User): Promise<MyJob[]> {
             portions: b.est_portions ?? 0,
             safeUntil: b.safe_until ?? null,
             notes: b.notes ?? null,
-            restaurant: r ? { name: r.name, area: r.area } : null,
+            restaurant: r ? { name: r.name, area: r.area, lat: r.lat, lng: r.lng } : null,
             items: (b.batch_items ?? []).map((i: any) => ({ name: i.name, category: i.category, portions: i.portions })),
           }
         : null,
-      fridge: f ? { code: f.code, name: f.name, area: f.area } : null,
+      fridge: f ? { code: f.code, name: f.name, area: f.area, lat: f.lat, lng: f.lng } : null,
     } satisfies MyJob;
   });
 }

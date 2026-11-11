@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Check, MapPin, Store } from "lucide-react";
+import { ArrowRight, Check, MapPin, Navigation, Store } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import { DemoVolunteerPicker } from "../../components/DemoPickers";
 import { FoodArt } from "../../components/FoodArt";
@@ -11,6 +11,7 @@ import { listMyJobs, type MyJob } from "../../data/jobs";
 import type { Tier } from "../../data/types";
 import { useLang } from "../../i18n/LanguageContext";
 import { fill, fmtClock, timeAgo } from "../../lib/format";
+import { googleDirectionsUrl } from "../../lib/geo";
 import { useNow } from "../../lib/useNow";
 
 const tierIndex: Record<Tier, number> = { green: 0, amber: 1, red: 2 };
@@ -101,11 +102,25 @@ export default function Jobs() {
             <div className="mt-3 flex flex-col gap-1.5 text-[12px]">
               <p className="flex items-start gap-2 text-foreground">
                 <Store size={14} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
-                <span><span className="font-medium text-muted-foreground">{J.pickupFrom}</span> {job.batch?.restaurant?.name} <span className="font-light text-muted-foreground">· {job.batch?.restaurant?.area}</span></span>
+                <span>
+                  <span className="font-medium text-muted-foreground">{J.pickupFrom}</span> {job.batch?.restaurant?.name} <span className="font-light text-muted-foreground">· {job.batch?.restaurant?.area}</span>
+                  {job.batch?.restaurant && (
+                    <a href={googleDirectionsUrl([job.batch.restaurant.lat, job.batch.restaurant.lng])} target="_blank" rel="noopener noreferrer" className="ms-2 inline-flex items-center gap-1 font-semibold text-primary">
+                      <Navigation size={11} aria-hidden="true" />{J.navigate}
+                    </a>
+                  )}
+                </span>
               </p>
               <p className="flex items-start gap-2 text-foreground">
                 <MapPin size={14} className="mt-0.5 shrink-0 text-primary" aria-hidden="true" />
-                <span><span className="font-medium text-muted-foreground">{J.deliverTo}</span> {job.fridge ? `${job.fridge.code} ${job.fridge.name}` : "—"}{job.distanceKm !== null && <span className="font-light text-muted-foreground"> · <bdi>{job.distanceKm}</bdi> {J.kmShort}</span>}</span>
+                <span>
+                  <span className="font-medium text-muted-foreground">{J.deliverTo}</span> {job.fridge ? `${job.fridge.code} ${job.fridge.name}` : "—"}{job.distanceKm !== null && <span className="font-light text-muted-foreground"> · <bdi>{job.distanceKm}</bdi> {J.kmShort}</span>}
+                  {job.fridge && (
+                    <a href={googleDirectionsUrl([job.fridge.lat, job.fridge.lng])} target="_blank" rel="noopener noreferrer" className="ms-2 inline-flex items-center gap-1 font-semibold text-primary">
+                      <Navigation size={11} aria-hidden="true" />{J.navigate}
+                    </a>
+                  )}
+                </span>
               </p>
               {job.pickupEtaMin !== null && mode === "offer" && <p className="font-light text-muted-foreground">{fill(J.eta, { n: job.pickupEtaMin })}</p>}
               {job.batch?.notes && <p className="font-light italic text-muted-foreground">{job.batch.notes}</p>}
