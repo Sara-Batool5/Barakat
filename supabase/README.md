@@ -72,3 +72,6 @@ No new SQL. Step 8 uses the tables and the `12_dispatch.sql` changes from Step 7
 
 ## Step 8 fixes (demo smoothing)
 Run `13_demo_fixes.sql` once (after 01 to 12). It adds the "Sealed chilled packs" category and a 15 minute answer time for signed-in volunteers (in the rules), the "ask a coordinator to check" option for restaurants, photo access for volunteers and fridge hosts on batches they can see, restaurant names for fridge hosts, and makes the demo volunteer available. The seed files were regenerated with the updated rules; you do not need to run them again.
+
+## Steps 9 and 10: live map, my fridge, impact report
+No new SQL. They use the tables and permissions already set up in `12_dispatch.sql` and `13_demo_fixes.sql`. (The website now also installs the free map library Leaflet automatically when Vercel builds it.)

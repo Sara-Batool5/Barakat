@@ -1,6 +1,46 @@
-# BARAKAT: Steps 7 and 8 with demo fixes (version 0.8.1)
+# BARAKAT: Steps 9 and 10 (live map, my fridge, impact and ESG report), version 0.10.0
 
-React + Vite + TypeScript + Tailwind CSS + Framer Motion + Supabase + Vercel functions (Gemini for photos). English and Arabic (right-to-left).
+React + Vite + TypeScript + Tailwind CSS + Framer Motion + Supabase + Leaflet (free OpenStreetMap map) + Vercel functions (Gemini for photos). English and Arabic (right-to-left).
+This zip contains everything from Step 1 to Step 10.
+
+## Step 9: live map and the fridge host's page
+- **Live map** (volunteer, fridge host and coordinator accounts). Free OpenStreetMap map of Dubai:
+  - **Fridges** coloured by how full they are (green plenty of room, amber filling up, red almost full, grey paused or offline). Room already promised to deliveries on the way counts. Click one for stock, incoming deliveries and opening hours.
+  - **Food to rescue**: restaurants with live batches, with what is waiting and how much safe time is left.
+  - **Volunteers on the move**: a van marker travels along its route (pickup, then fridge) while you watch. Positions are estimated from job timestamps, not GPS (demo volunteers move at about 6 times real speed).
+  - **Routes** (dashed lines), layer switches, a "Live rescues" list (click to fly to a venue) and a legend. It refreshes every 10 seconds and the moment the agent writes something.
+  - Each person sees what their permissions allow: coordinators see everything, volunteers see their own jobs, hosts see what is headed to their fridge (plus the sample network).
+- **Jobs page**: every job now has "Navigate" links that open Google Maps directions to the pickup and to the fridge (no key needed).
+- **My fridge** (fridge host account): a stock bar (in the fridge, promised, room left, capacity), **Record food taken** (taken by people, or removed because it expired; it updates the stock and the agent's idea of free room, and is logged), **Pause or resume deliveries**, opening hours, the incoming list, and recent stock movements. The demo host can still pick which fridge to look after.
+
+## Step 10: impact and ESG report
+- **Impact** (restaurant and coordinator accounts): meals rescued, kilograms kept from waste, CO2e avoided (estimate) and ESG points, for the last 30 days, 90 days or all time; an 8-week bar chart you can switch between meals, kilograms and CO2e; the recent deliveries ledger (what, where, how many); a "how these numbers are calculated" panel showing the factors and their version, with a clear placeholder warning.
+  - Restaurants see their own venue. Coordinators see the whole network, a leaderboard of top venues by ESG points, and a switch to hide sample data.
+- **Download report (PDF)**: a one-page A4 report (logo, period, summary, chart, deliveries table, method, disclaimer). The page shows a preview; the button opens your browser's print window, where you choose **Save as PDF**. Only the report is printed. This works in Arabic too, right-to-left.
+
+## Update the website (no local software)
+1. Upload the contents of this folder to GitHub (**Add file > Upload files**), replacing existing files. If GitHub complains about too many files, upload in two batches (`api`, `public`, `supabase` first). Vercel installs the new map library by itself.
+2. No new SQL and no new keys. Redeploy on Vercel if it does not redeploy itself.
+3. Run `select public.refresh_demo_data();` in the Supabase SQL Editor before a test session so the sample rescues look live.
+
+## Try it
+1. **Coordinator demo** > Live map. You should see fridges in colours, restaurants, and van markers for the live sample rescues. Toggle layers; click a fridge, a restaurant and a van.
+2. Submit a dish as the **Restaurant demo**, then accept it in the **Volunteer demo**. Watch the Live map (coordinator window): the van heads to the restaurant, then to the fridge.
+3. **Volunteer demo** > Jobs: tap **Navigate** next to the pickup or the fridge (opens Google Maps in a new tab).
+4. **Fridge host demo** > My fridge: record 5 portions taken, pause and resume deliveries, check the incoming list.
+5. **Restaurant demo** > Impact: look at the numbers and the chart, press **Download report (PDF)** and save it. Check that the PDF shows only the report.
+6. **Coordinator demo** > Impact: network totals and the leaderboard. Switch to Arabic and download again.
+
+## Notes
+- The map tiles come from OpenStreetMap and need an internet connection. OpenStreetMap's free tile service is for light use; a production launch would use a tile provider.
+- Volunteer positions are estimated, not GPS.
+- Impact factors and safety thresholds are placeholders until replaced with cited sources; the report says so. Do not present these figures as audited results.
+- The agent's background housekeeping runs while someone has the app open.
+- All records are fictional sample data.
+
+---
+
+# Earlier versions (Steps 7 to 8 and fixes)
 
 ## What this version fixes (from your testing)
 1. **Offers never reached the demo volunteer.** The sample data had Bilal Sharma "busy" with a sample trip, and the dispatcher counted sample trips as real, so it skipped him. Sample trips no longer block anyone. Offers to signed-in volunteers now last **15 minutes** (demo volunteers still answer in about a minute), and a wrong clock on your computer can no longer make an offer look expired: the app now uses the server's clock. An offer that ran out now shows as "No reply" instead of "Offered".

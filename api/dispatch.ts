@@ -5,6 +5,7 @@
  *   { action: "respond",  jobId, accept: true | false }     a volunteer accepts or declines an offer
  *   { action: "progress", jobId, step: "picked_up" | "delivered" }
  *   { action: "review",   batchId, decision: "approve" | "decline", note? }   a coordinator settles an escalated batch
+ *   { action: "fridge_stock", fridgeId, portions, reason: "taken" | "expired" }   a fridge host records food taken or removed
  *   { action: "tick" }                                      housekeeping: expire offers, simulate demo volunteers, retry matching
  *   { action: "demo_volunteers" | "demo_set_volunteer" | "demo_fridges" | "demo_set_fridge" }   demo accounts only: choose whom to play
  *
@@ -465,6 +466,21 @@ export async function reviewBatch(ctx: Ctx, batchId: string, decision: "approve"
   return { ok: true, status: match.status, match };
 }
 
+// ---------------------------------------------------------------- fridge stock (hosts)
+export type StockResult = { ok: true; stock: number; removed: number } | { ok: false; code: "not_found" | "nothing_to_remove" };
+
+/** A fridge host records portions taken by people, or removed because they expired. Keeps room accurate for matching. */
+export async function recordFridgeStock(ctx: Ctx, fridgeId: string, portions: number, reason: "taken" | "expired"): Promise<StockResult> {
+  const f = (await ctx.db.get(`fridges?id=eq.${fridgeId}&select=*`))[0];
+  if (!f) return { ok: false, code: "not_found" };
+  const removed = Math.min(Math.max(0, Math.floor(portions)), Number(f.current_stock ?? 0));
+  if (removed <= 0) return { ok: false, code: "nothing_to_remove" };
+  const updated = await adjustFridge(ctx, fridgeId, (x) => ({ current_stock: Math.max(0, Number(x.current_stock) - removed) }));
+  if (!updated) return { ok: false, code: "not_found" };
+  await ctx.db.post("fridge_stock_log", { fridge_id: fridgeId, batch_id: null, delta_portions: -removed, reason, is_sample: false });
+  return { ok: true, stock: Number(updated.current_stock), removed };
+}
+
 // ---------------------------------------------------------------- housekeeping
 export type TickSummary = { timedOut: number; simulated: number; matched: number; offered: number; expired: number };
 
@@ -670,6 +686,18 @@ export default async function handler(req: Req, res: Res) {
       if (!uuid.test(targetId)) return fail(res, 400, "bad_request", "Send a valid fridgeId.");
       const r = await switchDemoFridge(ctx, userId, targetId);
       return r.ok ? reply({ ok: true }) : fail(res, 404, r.code, "That fridge cannot be chosen.");
+    }
+
+    if (action === "fridge_stock") {
+      const fridgeId = String(body.fridgeId ?? "");
+      if (!uuid.test(fridgeId)) return fail(res, 400, "bad_request", "Send a valid fridgeId.");
+      const portions = Number(body.portions);
+      const reason = body.reason === "expired" ? "expired" : body.reason === "taken" ? "taken" : null;
+      if (!reason || !Number.isInteger(portions) || portions < 1 || portions > 500) return fail(res, 400, "bad_request", "Send portions (1 to 500) and a reason (taken or expired).");
+      const mine = profile.role === "fridge_host" && profile.fridge_id === fridgeId;
+      if (!mine && profile.role !== "coordinator") return fail(res, 403, "forbidden", "Only the host of this fridge, or a coordinator, can record stock.");
+      const r = await recordFridgeStock(ctx, fridgeId, portions, reason);
+      return r.ok ? reply({ ...r }) : fail(res, r.code === "not_found" ? 404 : 409, r.code, `Could not record this (${r.code}).`);
     }
 
     if (action === "review") {

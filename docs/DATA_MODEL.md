@@ -78,3 +78,12 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 - Every success answer from `/api/dispatch` carries `serverNow`; the app stores the offset and uses it for countdowns.
 - New category `packaged_chilled` (amber, chilled, 24 hours, no preparation time) and `batches.review_requested` (the gate escalates such batches with reason `review_requested`).
 - Storage: a photo can be read by its owner, by coordinators, and by anyone who can see the batch it belongs to (`can_see_batch`).
+
+## Live map and fridge host (Step 9)
+- The map reads `fridges`, live `batches` (with their venue), open `jobs` (with the volunteer) and available `volunteers`. Everything is filtered by the existing row-level security, so each role sees its own slice (plus the sample network).
+- Volunteer position is estimated in `src/lib/geo.ts` from the job's `responded_at` / `picked_up_at`, the transport speed and the road distance (the same figures the dispatcher uses). Demo volunteers (no `user_id`) are shown at 6x speed to match how the dispatcher simulates them.
+- `POST /api/dispatch { action: "fridge_stock", fridgeId, portions, reason }` (fridge host of that fridge, or a coordinator): lowers `current_stock` (never below zero, never more than is there) and writes a `fridge_stock_log` row with reason `taken` or `expired`. Pausing a fridge updates `fridges.status` directly (allowed for the host by row-level security).
+
+## Impact and ESG report (Step 10)
+- Source: `impact_logs` (one row per delivered batch: meals, kg, CO2e, ESG points, factor version), the factors in `app_config.impact_factors`, and `restaurants.esg_points` for the leaderboard.
+- `src/lib/impact.ts` holds the maths (totals, 30/90 day/all-time ranges, 8 weekly buckets) with tests. The report is the `#report-sheet` section; print styles in `src/index.css` hide everything else.
