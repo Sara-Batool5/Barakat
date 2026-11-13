@@ -83,17 +83,6 @@ function OverviewBody() {
 
       <Dashboard />
 
-      <div className="mt-6 rounded-[14px] border-[1.5px] border-dashed border-primary-muted bg-white p-6">
-        <h2 className="text-[14px] font-bold">{t.app.nextTitle}</h2>
-        <ul className="mt-4 flex flex-col gap-3">
-          {t.app.next.map((item) => (
-            <li key={item} className="flex items-center gap-3 text-[13px] font-light text-muted-foreground">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-              {item}
-            </li>
-          ))}
-        </ul>
-      </div>
     </>
   );
 }
