@@ -1,8 +1,20 @@
 {
-  "version": "placeholder-2026.10",
-  "status": "PLACEHOLDER: replace these with documented, cited sources (for example FAO, WRAP or the UAE Ne'ma methodology) before the pitch",
-  "kg_per_meal": 0.5,
+  "version": "2026.11-sourced",
+  "status": "Meal weight and CO2e factor are taken from the sources listed below. ESG points per meal is a BARAKAT scoring rule, not an external standard. CO2e is a global-average estimate.",
+  "kg_per_meal": 0.54,
   "co2e_kg_per_kg_food": 2.5,
   "esg_points_per_meal": 5,
-  "notes": "Meals are counted as rescued portions. CO2e is an estimate of avoided emissions per kilogram of food kept out of waste. Always show the factor version beside any figure."
+  "sources": [
+    {
+      "id": "meal-weight",
+      "label": "Meal weight: 1.2 pounds of food per meal (about 0.54 kg), the convention used by Feeding America and ReFED",
+      "url": "https://docs.refed.org/methodologies/impact_calculator/meals_recovered.html"
+    },
+    {
+      "id": "fao-footprint",
+      "label": "CO2e per kg: derived from FAO (2013), Food wastage footprint: about 3.3 Gt CO2e a year for about 1.3 Gt of edible food wasted, roughly 2.5 kg CO2e per kg (global average, excluding land-use change)",
+      "url": "https://www.unccd.int/resources/unccd-library/food-wastage-key-facts-and-figures"
+    }
+  ],
+  "notes": "Meals are counted as rescued portions. The CO2e figure is a global average for food that is produced and not eaten; the real saving depends on the food. ESG points reward rescued meals and are not a regulated measure. Always show the factor version beside any figure."
 }

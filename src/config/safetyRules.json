@@ -1,13 +1,14 @@
 {
-  "version": "2026.11-draft",
-  "status": "PLACEHOLDER VALUES: validate against the official Dubai Municipality food safety requirements before any real-world use",
-  "disclaimer": "BARAKAT screens food; it does not certify it. Thresholds below are illustrative defaults drawn from common food-safety practice, not official Dubai Municipality figures.",
+  "version": "2026.11-sourced",
+  "status": "The 5 C cold-storage limit follows Dubai Municipality requirements (see sources). The time limits (max_safe_hours) and the 24 hour window are BARAKAT's own conservative defaults, not Dubai Municipality figures, and should be confirmed with the authority before real use.",
+  "disclaimer": "BARAKAT screens food; it does not certify it.",
   "confidence": {
     "auto_list_min": 0.75,
     "review_min": 0.5
   },
   "temperature_c": {
-    "chilled_max": 5
+    "chilled_max": 5,
+    "source": "Dubai Municipality: charity fridges and food delivery requirements, cold food at 5 C or below"
   },
   "dispatch": {
     "min_window_minutes_after_match": 45,
@@ -184,6 +185,23 @@
       "code": "temp_above_limit",
       "condition": "chilled item stored above chilled_max",
       "text": "Stored above the chilled limit, so it cannot be listed."
+    }
+  ],
+  "sources": [
+    {
+      "id": "dm-circular",
+      "label": "Dubai Municipality, external circulars on health and safety (food delivery: hot food at 60 C or above, cold food at 5 C or below)",
+      "url": "https://stgportalnew.dm.gov.ae/wp-content/uploads/2020/09/22_External_Circulars_Health_Safety.pdf"
+    },
+    {
+      "id": "dm-food-code",
+      "label": "Dubai Municipality Food Code 2.0 (draft version 4, 2020)",
+      "url": "https://stgportalnew.dm.gov.ae/wp-content/uploads/2020/11/Food-Code-2.0-Draft-Version-4.pdf"
+    },
+    {
+      "id": "gulfnews-charity-fridges",
+      "label": "Gulf News: Dubai outlines safety standards for public drinking water coolers and charity fridges (refrigeration at 5 C or below)",
+      "url": "https://gulfnews.com/uae/dubai-outlines-safety-standards-for-public-drinking-water-coolers-and-charity-fridges-1.500610325"
     }
   ]
 }

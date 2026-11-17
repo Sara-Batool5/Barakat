@@ -11,3 +11,7 @@ export const listDemoVolunteers = () => post<{ volunteers: DemoVolunteer[] }>({ 
 export const chooseDemoVolunteer = (volunteerId: string) => post<Record<string, never>>({ action: "demo_set_volunteer", volunteerId });
 export const listDemoFridges = () => post<{ fridges: DemoFridge[] }>({ action: "demo_fridges" });
 export const chooseDemoFridge = (fridgeId: string) => post<Record<string, never>>({ action: "demo_set_fridge", fridgeId });
+
+// ---- coordinator demo controls (shown only while demo mode is on)
+export const demoRefresh = () => post<{ message: string }>({ action: "demo_refresh" });
+export const demoReset = () => post<{ message: string }>({ action: "demo_reset" });

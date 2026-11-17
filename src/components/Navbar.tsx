@@ -30,6 +30,7 @@ export function Navbar() {
 
   return (
     <>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-[13px] focus:font-semibold focus:text-white">{t.nav.skip}</a>
       <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-white/95 backdrop-blur-md">
         <div className="flex items-center justify-between gap-3 px-5 py-4 md:px-10 lg:px-[60px]">
           <Link to="/" aria-label={t.brand.name}>

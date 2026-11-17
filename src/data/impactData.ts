@@ -5,7 +5,7 @@ export type ImpactRow = {
   id: string; createdAt: string; meals: number; kg: number; co2eKg: number; points: number;
   restaurantId: string; restaurantName: string; items: string[]; fridgeCode: string; isSample: boolean;
 };
-export type Factors = { version: string; status: string; kgPerMeal: number; co2ePerKg: number; pointsPerMeal: number };
+export type Factors = { version: string; status: string; kgPerMeal: number; co2ePerKg: number; pointsPerMeal: number; sources: { label: string; url: string }[] };
 export type ImpactData = {
   factors: Factors;
   rows: ImpactRow[];
@@ -15,13 +15,14 @@ export type ImpactData = {
 
 const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
-const defaultFactors: Factors = { version: "unknown", status: "", kgPerMeal: 0.5, co2ePerKg: 2.5, pointsPerMeal: 5 };
+const defaultFactors: Factors = { version: "2026.11-sourced", status: "", kgPerMeal: 0.54, co2ePerKg: 2.5, pointsPerMeal: 5, sources: [] };
 
 function toFactors(v: any): Factors {
   if (!v) return defaultFactors;
   return {
     version: String(v.version ?? "unknown"), status: String(v.status ?? ""), kgPerMeal: Number(v.kg_per_meal ?? 0.5),
     co2ePerKg: Number(v.co2e_kg_per_kg_food ?? 2.5), pointsPerMeal: Number(v.esg_points_per_meal ?? 5),
+    sources: Array.isArray(v.sources) ? v.sources.map((x: any) => ({ label: String(x.label ?? ""), url: String(x.url ?? "") })) : [],
   };
 }
 

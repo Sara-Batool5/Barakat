@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { Activity as ActivityIcon, Camera, ClipboardList, FileText, LayoutDashboard, LogOut, MapPin, ShieldCheck, Snowflake, Truck, type LucideIcon } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { NAV, type NavKey } from "../auth/roles";
+import { PageSkeleton } from "../components/Skeleton";
 import { sendTick } from "../data/dispatch";
 import { Logo } from "../components/Logo";
 import { LanguageToggle } from "../components/LanguageToggle";
@@ -120,8 +121,10 @@ export default function AppShell() {
           </nav>
         </header>
 
-        <main className="flex-1 px-5 py-8 md:px-8">
-          <Outlet />
+        <main id="main" className="flex-1 px-5 py-8 md:px-8">
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

@@ -183,7 +183,25 @@ export default function Impact() {
               ))}
             </dl>
           )}
-          {placeholder && <p className="mt-3 rounded-lg bg-amber-light px-3.5 py-2.5 text-[12px] font-medium leading-[1.6] text-amber">{I.placeholderNote}</p>}
+          {placeholder ? (
+            <p className="mt-3 rounded-lg bg-amber-light px-3.5 py-2.5 text-[12px] font-medium leading-[1.6] text-amber">{I.placeholderNote}</p>
+          ) : (
+            <>
+              <p className="mt-3 text-[11px] font-light leading-[1.7] text-muted-foreground">{I.estimateNote}</p>
+              {f && f.sources.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[11px] font-semibold text-foreground">{I.sourcesTitle}</p>
+                  <ul className="mt-1.5 flex flex-col gap-1.5">
+                    {f.sources.map((src) => (
+                      <li key={src.url} className="text-[11px] font-light leading-[1.6] text-muted-foreground">
+                        <a href={src.url} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">{src.label}</a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
+          )}
         </section>
       </div>
 
@@ -226,7 +244,20 @@ export default function Impact() {
             {I.factors.kgPerMeal}: <bdi>{f.kgPerMeal} kg</bdi> · {I.factors.co2PerKg}: <bdi>{f.co2ePerKg} kg</bdi> · {I.factors.pointsPerMeal}: <bdi>{f.pointsPerMeal}</bdi> · {I.factors.version}: <bdi>{f.version}</bdi>
           </p>
         )}
-        {placeholder && <p className="mt-2 text-[11px] font-medium text-amber">{I.placeholderNote}</p>}
+        {placeholder ? (
+          <p className="mt-2 text-[11px] font-medium text-amber">{I.placeholderNote}</p>
+        ) : (
+          <>
+            <p className="mt-2 text-[11px] font-light leading-[1.7] text-muted-foreground">{I.estimateNote}</p>
+            {f && f.sources.length > 0 && (
+              <ul className="mt-1.5 flex flex-col gap-1">
+                {f.sources.map((src) => (
+                  <li key={src.url} className="text-[10px] font-light leading-[1.6] text-muted-foreground">{src.label} ({src.url})</li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
         <p className="mt-6 border-t border-border pt-3 text-[10px] font-light leading-[1.7] text-muted-foreground">{I.report.footer}</p>
       </section>
     </>

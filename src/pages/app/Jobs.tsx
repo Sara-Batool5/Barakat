@@ -204,7 +204,7 @@ export default function Jobs() {
         </ul>
       </section>
       <p className="mt-8 text-[11px] font-light text-muted-foreground">
-        <Link to="/app" className="hover:text-foreground">{t.app.soon.back}</Link>
+        <Link to="/app" className="hover:text-foreground">{t.app.backOverview}</Link>
       </p>
     </>
   );

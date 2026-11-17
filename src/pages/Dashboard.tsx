@@ -1,3 +1,4 @@
+import { ListSkeleton } from "../components/Skeleton";
 import { FoodArt } from "../components/FoodArt";
 import { useLang } from "../i18n/LanguageContext";
 import { useCountdown, useDashboard } from "../data/useDashboard";
@@ -26,9 +27,10 @@ export function Dashboard() {
 
   if (loading) {
     return (
-      <p className="mt-8 text-[13px] text-muted-foreground" role="status">
-        {d.loading}
-      </p>
+      <div className="mt-8">
+        <span className="sr-only" role="status">{d.loading}</span>
+        <ListSkeleton rows={4} />
+      </div>
     );
   }
   if (error || !data) {

@@ -1,3 +1,4 @@
+import { ListSkeleton } from "../../components/Skeleton";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
@@ -113,7 +114,12 @@ export default function MyBatches() {
         </Link>
       </div>
 
-      {state.loading && <p className="mt-8 text-[13px] text-muted-foreground" role="status">{B.loading}</p>}
+      {state.loading && (
+        <>
+          <span className="sr-only" role="status">{B.loading}</span>
+          <ListSkeleton rows={3} />
+        </>
+      )}
       {state.error && <p className="mt-8 text-[13px] text-danger" role="alert">{B.error}</p>}
       {!state.loading && !state.error && state.batches.length === 0 && (
         <p className="mt-8 rounded-[14px] border-[1.5px] border-dashed border-primary-muted bg-white p-6 text-[13px] text-muted-foreground">{B.empty}</p>

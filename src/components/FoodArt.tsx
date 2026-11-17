@@ -1,13 +1,5 @@
 import { useEffect, useState } from "react";
-
-type Shape = {
-  t: "r" | "e" | "p" | "l";
-  x?: number; y?: number; w?: number; h?: number; rx?: number; ry?: number;
-  cx?: number; cy?: number; d?: string;
-  x1?: number; y1?: number; x2?: number; y2?: number;
-  f?: string; s?: string; sw?: number; o?: number; rot?: number;
-};
-type Scenes = Record<string, Shape[]>;
+import { loadScenes, sceneCache, type Shape } from "../lib/foodScenes";
 
 /** Sample item name -> illustration. Real uploaded photos always win over these. */
 const BY_NAME: Record<string, string> = {
@@ -39,19 +31,6 @@ export function sceneKey(name?: string, category?: string): string {
   return (name && BY_NAME[name]) || (category && BY_CATEGORY[category]) || "bread_rolls";
 }
 
-const cache = new Map<string, Shape[]>();
-let loading: Promise<Scenes> | null = null;
-function loadScenes(): Promise<Scenes> {
-  if (!loading) {
-    loading = import("../data/foodScenes.json").then((m) => {
-      const all = ((m as { default?: unknown }).default ?? m) as unknown as Scenes;
-      for (const k of Object.keys(all)) cache.set(k, all[k]);
-      return all;
-    });
-  }
-  return loading;
-}
-
 function draw(s: Shape, i: number) {
   const common = {
     fill: s.f ?? "none",
@@ -78,11 +57,11 @@ function draw(s: Shape, i: number) {
 /** A flat food illustration, drawn as inline SVG. Fills its container and crops to fit. */
 export function FoodArt({ name, category, className = "", label = "" }: { name?: string; category?: string; className?: string; label?: string }) {
   const key = sceneKey(name, category);
-  const [shapes, setShapes] = useState<Shape[] | null>(cache.get(key) ?? null);
+  const [shapes, setShapes] = useState<Shape[] | null>(sceneCache.get(key) ?? null);
 
   useEffect(() => {
     let alive = true;
-    const hit = cache.get(key);
+    const hit = sceneCache.get(key);
     if (hit) {
       setShapes(hit);
       return;

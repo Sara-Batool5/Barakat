@@ -3,6 +3,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { useLang } from "../../i18n/LanguageContext";
 import { DemoFridgePicker, DemoVolunteerPicker } from "../../components/DemoPickers";
 import { IncomingDeliveries } from "../../components/IncomingDeliveries";
+import { DemoControls } from "../../components/DemoControls";
+import { useDemoMode } from "../../data/useDemoMode";
 import { Dashboard } from "../Dashboard";
 import { useLinkedRecord } from "./useLinkedRecord";
 
@@ -17,6 +19,7 @@ function OverviewBody() {
   const { t } = useLang();
   const { user } = useAuth();
   const linked = useLinkedRecord(user!);
+  const demoMode = useDemoMode();
   const role = user!.role;
   const roleName = t.login.roles[role].name;
 
@@ -48,9 +51,16 @@ function OverviewBody() {
             <p className="text-[15px] font-bold tracking-[-0.01em]">{t.app.overview.submitCta.title}</p>
             <p className="mt-1 text-[13px] font-light text-muted-foreground">{t.app.overview.submitCta.text}</p>
           </div>
-          <Link to="/app/new" className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-dark">
-            {t.app.overview.submitCta.button}
-          </Link>
+          <div className="flex flex-wrap gap-2.5">
+            <Link to="/app/new" className="rounded-lg bg-primary px-5 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-primary-dark">
+              {t.app.overview.submitCta.button}
+            </Link>
+            {demoMode && (
+              <Link to="/app/new?demo=cooked" className="rounded-lg border border-primary px-5 py-2.5 text-[13px] font-semibold text-primary transition-colors hover:bg-primary-light">
+                {t.app.overview.submitCta.demo}
+              </Link>
+            )}
+          </div>
         </div>
       )}
 
@@ -69,6 +79,8 @@ function OverviewBody() {
         </div>
       )}
 
+      {role === "coordinator" && <DemoControls />}
+
       {role === "volunteer" && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-[14px] border-[1.5px] border-primary bg-white p-5">
           <div>
@@ -82,7 +94,6 @@ function OverviewBody() {
       )}
 
       <Dashboard />
-
     </>
   );
 }

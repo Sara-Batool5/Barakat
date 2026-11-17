@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Camera, Check, Clock, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { useDemoMode } from "../../data/useDemoMode";
+import { sceneToJpeg } from "../../lib/foodSvg";
 import rules from "../../config/safetyRules.json";
 import { BatchError, createBatch } from "../../data/batches";
 import { SafeClock } from "../../components/SafeClock";
@@ -23,6 +25,14 @@ const tierStyle: Record<Tier, string> = {
   amber: "bg-amber-light text-amber",
   red: "bg-danger-light text-danger",
 };
+
+/** Ready-made examples for demonstrations. The picture is one of the built-in illustrations turned into a photo. */
+const PRESETS = [
+  { key: "cooked", scene: "rice_biryani", items: [{ name: "Chicken biryani trays", category: "cooked_chilled", portions: "24", allergens: [] as string[] }], prepared: "60", temp: "3.5", review: false },
+  { key: "bakery", scene: "croissants", items: [{ name: "Croissants", category: "bakery_ambient", portions: "40", allergens: ["gluten", "milk", "eggs"] }], prepared: "", temp: "", review: false },
+  { key: "chilled", scene: "yoghurt_cups", items: [{ name: "Yoghurt cups (sealed)", category: "packaged_chilled", portions: "36", allergens: ["milk"] }], prepared: "", temp: "3", review: false },
+  { key: "review", scene: "tuna_salad", items: [{ name: "Tuna salad boxes", category: "sandwiches_salads", portions: "18", allergens: ["fish", "eggs"] }], prepared: "30", temp: "4", review: true },
+];
 
 const inputClass =
   "w-full rounded-lg border-[1.5px] border-border bg-white px-3.5 py-2.5 text-[14px] text-foreground placeholder:text-subtle focus:border-primary focus:outline-none";
@@ -58,6 +68,10 @@ export default function NewSurplus() {
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
   const [match, setMatch] = useState<{ status: "running" | "done" | "error"; data?: MatchData } | null>(null);
+  const demoMode = useDemoMode();
+  const [params] = useSearchParams();
+  const [presetBusy, setPresetBusy] = useState(false);
+  const presetApplied = useRef(false);
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -81,6 +95,40 @@ export default function NewSurplus() {
   const updateRow = (key: number, patch: Partial<Row>) => setItems((cur) => cur.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const toggleAllergen = (key: number, a: string) =>
     setItems((cur) => cur.map((r) => (r.key === key ? { ...r, allergens: r.allergens.includes(a) ? r.allergens.filter((x) => x !== a) : [...r.allergens, a] } : r)));
+
+  const applyPreset = async (key: string) => {
+    const p = PRESETS.find((x) => x.key === key);
+    if (!p) return;
+    setPresetBusy(true);
+    try {
+      const blob = await sceneToJpeg(p.scene);
+      setPhoto(blob);
+      setPhotoUrl(URL.createObjectURL(blob));
+      setPhotoError(null);
+      setAnalysis({ status: "idle", applied: false });
+      setItems(p.items.map((i) => ({ key: counter.current++, name: i.name, category: i.category, portions: i.portions, allergens: [...i.allergens] })));
+      setPrepared(p.prepared);
+      setTemp(p.temp);
+      setPickup("120");
+      setNotes("");
+      setAttested(true);
+      setRequestReview(p.review && user?.mode === "supabase");
+      setTriedSubmit(false);
+      setErrors([]);
+    } catch {
+      setPhotoError(S.photoBad);
+    } finally {
+      setPresetBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    const key = params.get("demo");
+    if (key && demoMode && !presetApplied.current) {
+      presetApplied.current = true;
+      void applyPreset(key);
+    }
+  }, [params, demoMode]);
 
   const onPhoto = async (file: File | undefined) => {
     if (!file) return;
@@ -292,6 +340,20 @@ export default function NewSurplus() {
       <h1 className="text-[28px] font-extrabold tracking-[-0.04em]">{S.title}</h1>
       <p className="mt-2 max-w-[600px] text-[14px] font-light leading-[1.8] text-muted-foreground">{S.sub}</p>
       {user.mode === "local" && <p className="mt-3 inline-block rounded-full bg-amber-light px-3 py-1 text-[11px] font-semibold text-amber">{S.localNote}</p>}
+
+      {demoMode && (
+        <div className="mt-5 rounded-[14px] border-[1.5px] border-dashed border-primary-muted bg-white p-4">
+          <p className="text-[13px] font-bold">{S.demoTitle}</p>
+          <p className="mt-1 text-[12px] font-light leading-[1.7] text-muted-foreground">{S.demoHelp}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {PRESETS.map((p) => (
+              <button key={p.key} type="button" disabled={presetBusy} onClick={() => void applyPreset(p.key)} className="rounded-full border border-primary-muted bg-primary-light/60 px-3.5 py-1.5 text-[12px] font-semibold text-primary transition-colors hover:border-primary disabled:opacity-60">
+                {S.presets[p.key]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <form onSubmit={onSubmit} noValidate className="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex flex-col gap-5">
