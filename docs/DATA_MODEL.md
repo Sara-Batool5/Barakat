@@ -87,3 +87,9 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 ## Impact and ESG report (Step 10)
 - Source: `impact_logs` (one row per delivered batch: meals, kg, CO2e, ESG points, factor version), the factors in `app_config.impact_factors`, and `restaurants.esg_points` for the leaderboard.
 - `src/lib/impact.ts` holds the maths (totals, 30/90 day/all-time ranges, 8 weekly buckets) with tests. The report is the `#report-sheet` section; print styles in `src/index.css` hide everything else.
+
+## Demo mode (Step 11)
+- `app_config.demo_mode` = `{"enabled": true}` switches on the demo helpers (sample dish shortcuts, coordinator demo controls). The client reads it; the server checks it again before running anything.
+- `POST /api/dispatch { action: "demo_refresh" | "demo_reset" }` (coordinators, demo mode on): runs `refresh_demo_data()` or `reset_demo_tests()` with the service role.
+- `reset_demo_tests()` deletes batches with `is_sample = false` (items, jobs, events, checks and impact go with them), non-sample stock log rows and vision analyses, then recomputes sample fridge stock from the remaining log, sets reservations to zero, recomputes sample restaurants' ESG points from their impact rows, and resets sample volunteer availability.
+- `refresh_demo_data()`, `reset_demo_tests()` and `expire_stale_batches()` are executable by `service_role` only.

@@ -8,6 +8,7 @@
  *   { action: "fridge_stock", fridgeId, portions, reason: "taken" | "expired" }   a fridge host records food taken or removed
  *   { action: "tick" }                                      housekeeping: expire offers, simulate demo volunteers, retry matching
  *   { action: "demo_volunteers" | "demo_set_volunteer" | "demo_fridges" | "demo_set_fridge" }   demo accounts only: choose whom to play
+ *   { action: "demo_refresh" | "demo_reset" }   coordinators, while demo mode is on: refresh the sample data, or clear test batches
  *
  * Server-only environment variable: SUPABASE_SERVICE_ROLE_KEY (plus VITE_SUPABASE_URL or SUPABASE_URL).
  * Self-contained on purpose (no imports). The engine functions take a small database object so they can be tested
@@ -26,6 +27,8 @@ export type Db = {
   get(path: string): Promise<any[]>;
   post(table: string, body: unknown): Promise<any[]>;
   patch(path: string, body: unknown): Promise<any[]>;
+  /** Runs a database function (used for the demo controls). */
+  rpc(name: string): Promise<unknown>;
 };
 
 export class DbError extends Error {
@@ -56,6 +59,17 @@ function httpDb(url: string, key: string): Db {
     get: (path) => call(path, { headers: sbHeaders(key) }),
     post: (table, body) => call(table, { method: "POST", headers: sbHeaders(key, { Prefer: "return=representation" }), body: JSON.stringify(body) }),
     patch: (path, body) => call(path, { method: "PATCH", headers: sbHeaders(key, { Prefer: "return=representation" }), body: JSON.stringify(body) }),
+    rpc: async (name) => {
+      const r = await fetch(`${url}/rest/v1/rpc/${name}`, { method: "POST", headers: sbHeaders(key), body: "{}" });
+      let json: any = null;
+      try {
+        json = await r.json();
+      } catch {
+        json = null;
+      }
+      if (!r.ok) throw new DbError(r.status, String(json?.message ?? `HTTP ${r.status}`));
+      return json;
+    },
   };
 }
 
@@ -649,9 +663,10 @@ export default async function handler(req: Req, res: Res) {
     const profile = (await db.get(`profiles?id=eq.${encodeURIComponent(userId)}&select=role,restaurant_id,volunteer_id,fridge_id`))[0];
     if (!profile) return fail(res, 403, "forbidden", "No profile for this account.");
 
-    const configs = await db.get(`app_config?key=in.(safety_rules,impact_factors)&select=key,value`);
+    const configs = await db.get(`app_config?key=in.(safety_rules,impact_factors,demo_mode)&select=key,value`);
     const rules = configs.find((c) => c.key === "safety_rules")?.value;
     const factors = configs.find((c) => c.key === "impact_factors")?.value ?? {};
+    const demoOn = configs.find((c) => c.key === "demo_mode")?.value?.enabled === true;
     if (!rules) return fail(res, 500, "setup", "The safety rules are missing. Run the seed files first.");
     const ctx: Ctx = { db, rules, factors, now: new Date() };
 
@@ -668,6 +683,13 @@ export default async function handler(req: Req, res: Res) {
       const isCoordinator = profile.role === "coordinator";
       if (!batch || (!isCoordinator && !(profile.role === "restaurant" && profile.restaurant_id === batch.restaurant_id))) return fail(res, 404, "not_found", "Batch not found.");
       return reply({ ok: true, ...(await matchAndDispatch(ctx, batchId)) });
+    }
+
+    if (action === "demo_refresh" || action === "demo_reset") {
+      if (profile.role !== "coordinator") return fail(res, 403, "forbidden", "Only a coordinator can use the demo controls.");
+      if (!demoOn) return fail(res, 403, "demo_off", "The demo controls are switched off.");
+      const out = await db.rpc(action === "demo_refresh" ? "refresh_demo_data" : "reset_demo_tests");
+      return reply({ ok: true, message: typeof out === "string" ? out : "" });
     }
 
     if (action === "demo_volunteers" || action === "demo_set_volunteer") {
@@ -730,9 +752,10 @@ export default async function handler(req: Req, res: Res) {
     return fail(res, 400, "bad_request", "Unknown action.");
   } catch (err) {
     console.error("dispatch: failed", err);
-    if (err instanceof DbError && err.status === 404) return fail(res, 404, "not_found", err.message);
     const msg = err instanceof Error ? err.message : "error";
-    const setup = /reserved_portions|expires_at|column .* does not exist|uniq_open_job/i.test(msg);
-    return fail(res, 502, setup ? "setup" : "upstream", setup ? "The database is missing the Step 7 setup. Run supabase/12_dispatch.sql." : "The dispatcher could not finish.");
+    const setup = /reserved_portions|expires_at|column .* does not exist|uniq_open_job|reset_demo_tests|refresh_demo_data|Could not find the function/i.test(msg);
+    if (setup) return fail(res, 502, "setup", "The database is missing a setup step. Run supabase/12_dispatch.sql, 13_demo_fixes.sql and 14_demo_mode.sql.");
+    if (err instanceof DbError && err.status === 404) return fail(res, 404, "not_found", err.message);
+    return fail(res, 502, "upstream", "The dispatcher could not finish.");
   }
 }

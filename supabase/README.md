@@ -75,3 +75,8 @@ Run `13_demo_fixes.sql` once (after 01 to 12). It adds the "Sealed chilled packs
 
 ## Steps 9 and 10: live map, my fridge, impact report
 No new SQL. They use the tables and permissions already set up in `12_dispatch.sql` and `13_demo_fixes.sql`. (The website now also installs the free map library Leaflet automatically when Vercel builds it.)
+
+## Step 11: sourced factors, demo mode, tighter permissions
+Run `14_demo_mode.sql` once (after 01 to 13). It records the sources of the impact factors and the safety rules, adds the `demo_mode` switch and the `reset_demo_tests()` function used by the coordinator's demo controls, and closes a gap: the housekeeping and demo functions can now only be run by the server, not by signed-in users through the public API.
+Before a real launch, switch the demo helpers off:
+`update public.app_config set value = '{"enabled": false}' where key = 'demo_mode';`
