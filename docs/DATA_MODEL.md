@@ -93,3 +93,7 @@ Rules live in `src/config/safetyRules.json` and are copied into `app_config`. **
 - `POST /api/dispatch { action: "demo_refresh" | "demo_reset" }` (coordinators, demo mode on): runs `refresh_demo_data()` or `reset_demo_tests()` with the service role.
 - `reset_demo_tests()` deletes batches with `is_sample = false` (items, jobs, events, checks and impact go with them), non-sample stock log rows and vision analyses, then recomputes sample fridge stock from the remaining log, sets reservations to zero, recomputes sample restaurants' ESG points from their impact rows, and resets sample volunteer availability.
 - `refresh_demo_data()`, `reset_demo_tests()` and `expire_stale_batches()` are executable by `service_role` only.
+
+## Scheduler and system check (Step 12)
+- `POST /api/dispatch` with the header `x-cron-secret` (matching the server's `CRON_SECRET`) and `{ "action": "cron_tick" }` runs the housekeeping tick with no user session and records `app_config.last_cron_tick` = `{ at, summary }`. Without a valid secret the call is refused. Supabase `pg_cron` (job `barakat-tick`, every 2 minutes) calls it through `pg_net`.
+- `POST /api/health` (coordinators only) returns one entry per check (`env_*`, `db_*`, `storage_bucket`, `scheduler`), each with `ok` and an optional `detail`. It never returns a secret value.

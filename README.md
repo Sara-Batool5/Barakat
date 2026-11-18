@@ -1,7 +1,32 @@
-# BARAKAT: Step 11 (demo polish and judge mode), version 0.11.0
+# BARAKAT: Step 12 (deployment and testing), version 0.12.0
 
 React + Vite + TypeScript + Tailwind CSS + Framer Motion + Supabase + Leaflet + Vercel functions (Gemini for photos). English and Arabic (right-to-left).
-This zip contains everything from Step 1 to Step 11.
+This zip contains everything from Step 1 to Step 12.
+
+## What is new in Step 12
+- **Scheduler**: the agent now keeps working when nobody has the website open (offers lapse and move on, retries happen, batches expire). It also keeps the free Supabase project from going idle. Set up with `supabase/15_scheduler.sql` (two small edits) and a `CRON_SECRET` key in Vercel.
+- **System check** (coordinator menu): one page that tells you, in plain words, whether the website keys, database setup, photo storage and scheduler are all in place, and exactly how to fix any red line. It never shows a secret.
+- **Security headers** on every page (`vercel.json`).
+- **Docs**: `docs/DEPLOYMENT_CHECKLIST.md` (keys, SQL order, scheduler, before-the-day and before-a-real-launch lists), `docs/TEST_PLAN.md` (10-minute smoke test, full test matrix, bug report form), `docs/LIMITS_AND_RECOVERY.md` (free-plan limits, what to do when something breaks, plan B for demo day).
+
+## Update the website (no local software)
+1. Upload the contents of this folder to GitHub (**Add file > Upload files**), replacing existing files. If GitHub complains about too many files, upload in two batches (`api`, `public`, `supabase` first).
+2. In Vercel add the key `CRON_SECRET` (see `docs/DEPLOYMENT_CHECKLIST.md`) and redeploy.
+3. Edit and run `supabase/15_scheduler.sql`.
+4. Open **System check** as the coordinator and press **Run the check**.
+
+## Try it
+1. Coordinator > **System check**: the Scheduler line is red at first, then green two to four minutes after step 3.
+2. Submit a demo dish as the restaurant, decline the offer as the volunteer, then close every window and wait five minutes: the offer still moves on (the scheduler did it). Check the restaurant's My batches later.
+3. Work through `docs/TEST_PLAN.md`, starting with the 10-minute smoke test.
+
+## Notes
+- Arabic text was written by an AI assistant: have a native speaker proofread it before submitting.
+- All records are fictional sample data.
+
+---
+
+# Earlier versions (Step 11 and before)
 
 ## What is new in Step 11
 - **"Coming next" card removed** from every dashboard, with its unused text.

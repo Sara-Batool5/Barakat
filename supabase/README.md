@@ -80,3 +80,6 @@ No new SQL. They use the tables and permissions already set up in `12_dispatch.s
 Run `14_demo_mode.sql` once (after 01 to 13). It records the sources of the impact factors and the safety rules, adds the `demo_mode` switch and the `reset_demo_tests()` function used by the coordinator's demo controls, and closes a gap: the housekeeping and demo functions can now only be run by the server, not by signed-in users through the public API.
 Before a real launch, switch the demo helpers off:
 `update public.app_config set value = '{"enabled": false}' where key = 'demo_mode';`
+
+## Step 12: scheduler
+`15_scheduler.sql` needs two edits before you run it (your website address and your scheduler secret). It asks Supabase to call the website every 2 minutes so the agent keeps working when nobody has the app open. Stop it with `select cron.unschedule('barakat-tick');`. Full steps are in `docs/DEPLOYMENT_CHECKLIST.md`.

@@ -8,6 +8,8 @@
  *   { action: "fridge_stock", fridgeId, portions, reason: "taken" | "expired" }   a fridge host records food taken or removed
  *   { action: "tick" }                                      housekeeping: expire offers, simulate demo volunteers, retry matching
  *   { action: "demo_volunteers" | "demo_set_volunteer" | "demo_fridges" | "demo_set_fridge" }   demo accounts only: choose whom to play
+
+ * The scheduler (Supabase pg_cron) calls { action: "cron_tick" } with the header x-cron-secret (no user session).
  *   { action: "demo_refresh" | "demo_reset" }   coordinators, while demo mode is on: refresh the sample data, or clear test batches
  *
  * Server-only environment variable: SUPABASE_SERVICE_ROLE_KEY (plus VITE_SUPABASE_URL or SUPABASE_URL).
@@ -620,6 +622,14 @@ function fail(res: Res, status: number, code: string, message: string) {
   res.status(status).json({ ok: false, code, message });
 }
 
+/** Compares two secrets without stopping at the first difference. */
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 let lastTickAt = 0;
 
 export default async function handler(req: Req, res: Res) {
@@ -630,6 +640,28 @@ export default async function handler(req: Req, res: Res) {
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
   const url = (env.SUPABASE_URL || env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
   if (!serviceKey || !url) return fail(res, 503, "not_configured", "The server is missing SUPABASE_SERVICE_ROLE_KEY or the Supabase URL.");
+
+  // The scheduler path: Supabase pg_cron calls this every couple of minutes with a shared secret, so the agent keeps
+  // working when nobody has the app open. It can only run the housekeeping tick.
+  const sentSecret = String(req.headers["x-cron-secret"] ?? "");
+  if (sentSecret) {
+    const expected = env.CRON_SECRET ?? "";
+    if (!expected || !safeEqual(sentSecret, expected)) return fail(res, 401, "unauthorized", "The scheduler secret is not valid.");
+    try {
+      const sdb = httpDb(url, serviceKey);
+      const cfg = await sdb.get(`app_config?key=in.(safety_rules,impact_factors)&select=key,value`);
+      const srules = cfg.find((c) => c.key === "safety_rules")?.value;
+      if (!srules) return fail(res, 500, "setup", "The safety rules are missing. Run the seed files first.");
+      const summary = await tick({ db: sdb, rules: srules, factors: cfg.find((c) => c.key === "impact_factors")?.value ?? {}, now: new Date() });
+      const stamp = { at: new Date().toISOString(), summary };
+      const changed = await sdb.patch(`app_config?key=eq.last_cron_tick`, { value: stamp });
+      if (changed.length === 0) await sdb.post("app_config", { key: "last_cron_tick", value: stamp });
+      return res.status(200).json({ ok: true, summary, serverNow: new Date().toISOString() });
+    } catch (err) {
+      console.error("dispatch: cron tick failed", err);
+      return fail(res, 502, "upstream", "The scheduled tick could not finish.");
+    }
+  }
 
   const authHeader = String(req.headers["authorization"] ?? req.headers["Authorization"] ?? "");
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
