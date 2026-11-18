@@ -1,6 +1,6 @@
 import { Suspense, useEffect } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Activity as ActivityIcon, Camera, ClipboardList, FileText, LayoutDashboard, LogOut, MapPin, ShieldCheck, Snowflake, Truck, type LucideIcon } from "lucide-react";
+import { Activity as ActivityIcon, HeartPulse, Camera, ClipboardList, FileText, LayoutDashboard, LogOut, MapPin, ShieldCheck, Snowflake, Truck, type LucideIcon } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { NAV, type NavKey } from "../auth/roles";
 import { PageSkeleton } from "../components/Skeleton";
@@ -16,6 +16,7 @@ const navIcons: Record<NavKey, LucideIcon> = {
   jobs: Truck,
   review: ShieldCheck,
   activity: ActivityIcon,
+  health: HeartPulse,
   map: MapPin,
   impact: FileText,
   myFridge: Snowflake,

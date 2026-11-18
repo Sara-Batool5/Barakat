@@ -17,6 +17,7 @@ const Activity = lazy(() => import("./pages/app/Activity"));
 const Impact = lazy(() => import("./pages/app/Impact"));
 const MyFridge = lazy(() => import("./pages/app/MyFridge"));
 const LiveMap = lazy(() => import("./pages/app/LiveMap"));
+const Health = lazy(() => import("./pages/app/Health"));
 
 function FullPageMessage() {
   const { t } = useLang();
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="jobs" element={<RoleOnly roles={["volunteer"]}><Jobs /></RoleOnly>} />
           <Route path="review" element={<RoleOnly roles={["coordinator"]}><ReviewQueue /></RoleOnly>} />
           <Route path="activity" element={<RoleOnly roles={["coordinator"]}><Activity /></RoleOnly>} />
+          <Route path="health" element={<RoleOnly roles={["coordinator"]}><Health /></RoleOnly>} />
           <Route path="map" element={<RoleOnly roles={["volunteer", "coordinator", "fridge_host"]}><LiveMap /></RoleOnly>} />
           <Route path="impact" element={<RoleOnly roles={["restaurant", "coordinator"]}><Impact /></RoleOnly>} />
           <Route path="fridge" element={<RoleOnly roles={["fridge_host"]}><MyFridge /></RoleOnly>} />

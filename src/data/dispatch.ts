@@ -14,7 +14,7 @@ export type MatchData = {
 
 export type Reply<T> = { ok: true; data: T } | { ok: false; code: DispatchFail };
 
-export async function post<T>(body: Record<string, unknown>): Promise<Reply<T>> {
+export async function post<T>(body: Record<string, unknown>, path = "/api/dispatch"): Promise<Reply<T>> {
   if (!supabase) return { ok: false, code: "local" };
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -22,7 +22,7 @@ export async function post<T>(body: Record<string, unknown>): Promise<Reply<T>> 
 
   let res: Response;
   try {
-    res = await fetch("/api/dispatch", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+    res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
   } catch {
     return { ok: false, code: "network" };
   }
